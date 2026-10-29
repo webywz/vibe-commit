@@ -1,0 +1,60 @@
+{
+  "name": "vibe-commit",
+  "version": "0.1.0",
+  "description": "Stylish conventional commit messages with personality. Offline-first, AI-optional.",
+  "keywords": [
+    "git",
+    "commit",
+    "conventional-commits",
+    "cli",
+    "commit-message",
+    "ai",
+    "offline"
+  ],
+  "homepage": "https://github.com/webywz/vibe-commit#readme",
+  "bugs": {
+    "url": "https://github.com/webywz/vibe-commit/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/webywz/vibe-commit.git"
+  },
+  "license": "MIT",
+  "author": "webywz",
+  "type": "module",
+  "bin": {
+    "vibe-commit": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "!dist/**/*.map",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build",
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
