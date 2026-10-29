@@ -1,5 +1,5 @@
 {
-  "name": "vibe-commit",
+  "name": "@webywz/vibe-commit",
   "version": "0.1.0",
   "description": "Stylish conventional commit messages with personality. Offline-first, AI-optional.",
   "keywords": [
@@ -24,6 +24,9 @@
   "type": "module",
   "bin": {
     "vibe-commit": "./dist/cli.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "exports": {
     ".": {
