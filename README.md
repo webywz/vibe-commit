@@ -7,7 +7,7 @@ Stage your files, run one command, get a commit message that looks like you mean
 一条命令，根据暂存区 diff 写出有品味的 [Conventional Commits](https://www.conventionalcommits.org/)。**无 API Key 也能用**，有 Key 时再可选 AI。
 
 [![CI](https://github.com/webywz/vibe-commit/actions/workflows/ci.yml/badge.svg)](https://github.com/webywz/vibe-commit/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/vibe-commit.svg)](https://www.npmjs.com/package/vibe-commit)
+[![npm](https://img.shields.io/npm/v/@webywz/vibe-commit.svg)](https://www.npmjs.com/package/@webywz/vibe-commit)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
 ---
@@ -48,16 +48,16 @@ git commit -m "$(vibe-commit --dry-run)"
 ## Install · 安装
 
 ```bash
-npm install -g vibe-commit
+npm install -g @webywz/vibe-commit
 # or, no install:
-npx vibe-commit
+npx @webywz/vibe-commit
 ```
 
-Requires **Node.js 18.18+** and `git`.
+Requires **Node.js 18.18+** and `git`. After install, the CLI binary is still `vibe-commit`.
 
 ```bash
-npm i -g vibe-commit          # 全局安装
-npx vibe-commit               # 一次性运行
+npm i -g @webywz/vibe-commit          # 全局安装
+npx @webywz/vibe-commit               # 一次性运行
 ```
 
 ---
@@ -128,7 +128,7 @@ Copy `.env.example` if you keep secrets in a file. vibe-commit never sends unsta
 ## Library
 
 ```ts
-import { proposeHeuristic, formatCommit } from "vibe-commit";
+import { proposeHeuristic, formatCommit } from "@webywz/vibe-commit";
 
 const message = proposeHeuristic({ diff, vibe: "pro" });
 console.log(formatCommit(message));
