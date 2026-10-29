@@ -1,6 +1,6 @@
 {
   "name": "@webywz/vibe-commit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Stylish conventional commit messages with personality. Offline-first, AI-optional.",
   "keywords": [
     "git",
@@ -23,7 +23,7 @@
   "author": "webywz",
   "type": "module",
   "bin": {
-    "vibe-commit": "./dist/cli.js"
+    "vibe-commit": "dist/cli.js"
   },
   "publishConfig": {
     "access": "public"
@@ -46,7 +46,7 @@
     "node": ">=18.18"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node -e \"require('fs').chmodSync('dist/cli.js', 0o755)\"",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build",
     "test": "tsx --test test/*.test.ts",

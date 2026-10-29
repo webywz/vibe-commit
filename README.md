@@ -151,7 +151,7 @@ node dist/cli.js --help
 | Script |  |
 | --- | --- |
 | `npm test` | Unit + e2e tests (`node:test` + `tsx`) |
-| `npm run build` | Emit `dist/` |
+| `npm run build` | Emit `dist/` (shebang + executable bit on `dist/cli.js`) |
 | `npm run typecheck` | `tsc --noEmit` |
 
 MIT © webywz — see [LICENSE](./LICENSE).
