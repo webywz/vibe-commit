@@ -46,10 +46,10 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     return runInit(options.path, options.force, options.json);
   }
   if (options.command === "install") {
-    return runInstall(options.path);
+    return runInstall(options.path, options.json);
   }
   if (options.command === "uninstall") {
-    return runUninstall(options.path);
+    return runUninstall(options.path, options.json);
   }
   if (options.command === "prepare-commit-msg") {
     return runHookPrepare(options.messageFile!, options.commitSource);
@@ -202,10 +202,26 @@ function runInit(repoPath?: string, force?: boolean, json?: boolean): number {
   }
 }
 
-function runInstall(repoPath?: string): number {
+function runInstall(repoPath?: string, json?: boolean): number {
   try {
     const target = resolve(repoPath ?? process.cwd());
     const result = installHook(target);
+
+    if (json) {
+      const output = {
+        ok: true,
+        action: result.updated ? "updated" : result.created ? "installed" : "installed",
+        manager: "bare" as const,
+        path: result.hookPath,
+        hookPath: result.hookPath,
+        created: result.created,
+        updated: result.updated,
+        backedUp: result.backedUp,
+      };
+      process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+      return 0;
+    }
+
     const action = result.updated
       ? "updated"
       : result.created
@@ -225,6 +241,13 @@ function runInstall(repoPath?: string): number {
     );
     return 0;
   } catch (error) {
+    if (json) {
+      const errorMessage = error instanceof GitError || error instanceof Error
+        ? error.message
+        : "Unexpected error";
+      process.stderr.write(`${JSON.stringify({ ok: false, error: errorMessage }, null, 2)}\n`);
+      return 1;
+    }
     const text =
       error instanceof GitError || error instanceof Error
         ? error.message
@@ -234,10 +257,38 @@ function runInstall(repoPath?: string): number {
   }
 }
 
-function runUninstall(repoPath?: string): number {
+function runUninstall(repoPath?: string, json?: boolean): number {
   try {
     const target = resolve(repoPath ?? process.cwd());
     const result = uninstallHook(target);
+
+    if (json) {
+      if (!result.removed) {
+        const output = {
+          ok: true,
+          action: "skipped" as const,
+          manager: "bare" as const,
+          path: result.hookPath,
+          hookPath: result.hookPath,
+          removed: false,
+          restored: false,
+        };
+        process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+        return 0;
+      }
+      const output = {
+        ok: true,
+        action: "removed" as const,
+        manager: "bare" as const,
+        path: result.hookPath,
+        hookPath: result.hookPath,
+        removed: true,
+        restored: result.restored,
+      };
+      process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+      return 0;
+    }
+
     if (!result.removed) {
       process.stdout.write(
         `${pc.yellow("skip")}  no managed vibe-commit hook found\n` +
@@ -254,6 +305,13 @@ function runUninstall(repoPath?: string): number {
     }
     return 0;
   } catch (error) {
+    if (json) {
+      const errorMessage = error instanceof GitError || error instanceof Error
+        ? error.message
+        : "Unexpected error";
+      process.stderr.write(`${JSON.stringify({ ok: false, error: errorMessage }, null, 2)}\n`);
+      return 1;
+    }
     const text =
       error instanceof GitError || error instanceof Error
         ? error.message

@@ -62,13 +62,13 @@ vibe-commit install                 # install bare .git/hooks (legacy)
 | `--locale <locale>` | `en` \| `zh` (default: `en`) · 提交信息主题语言 |
 | `--no-ai` | Skip the API even if `OPENAI_API_KEY` is set · 即使有 Key 也不走 AI |
 | `--breaking` | Force breaking (`!` + `BREAKING CHANGE:` footer = **subject**) · 强制破坏性变更（`!` + footer 文本即 **subject**） |
-| `--json` | Machine-readable proposal (propose) or result (init) · 机器可读提案（propose）或结果（init） |
+| `--json` | Machine-readable proposal (propose) or result (init/install/uninstall) · 机器可读提案（propose）或结果（init/install/uninstall） |
 | `--github` | Emit GitHub Actions `::notice` / `::warning` / `::error` annotations; write `GITHUB_OUTPUT` + `GITHUB_STEP_SUMMARY` when set · 输出 Actions 注解，并在环境变量存在时写 Job 输出与 Summary |
 | `--quiet` | Suppress the pretty terminal report; `--json` / `--github` still emit · 抑制漂亮终端报告 |
 | `--max-annotations <n>` | Cap `--github` annotation lines (default: 20; invalid → UsageError) · 限制注解条数 |
 | `init [--path] [--force] [--json]` | Auto-detect hook manager and install (husky → simple-git-hooks → bare .git/hooks) · 自动检测钩子管理器并安装 |
-| `install [--path]` | Install the prepare-commit-msg hook (bare .git/hooks) · 安装钩子（直接写 .git/hooks） |
-| `uninstall [--path]` | Remove the managed hook · 卸载钩子 |
+| `install [--path] [--json]` | Install the prepare-commit-msg hook (bare .git/hooks) · 安装钩子（直接写 .git/hooks） |
+| `uninstall [--path] [--json]` | Remove the managed hook · 卸载钩子 |
 | `--force` | Force overwrite existing hook/config (init only) · 强制覆盖已存在的钩子配置（仅 init） |
 | `-h` / `-v` | Help / version · 帮助 / 版本 |
 
@@ -116,12 +116,15 @@ vibe-commit init --force                 # overwrite existing hook/config
 vibe-commit init --json                  # machine-readable output
 vibe-commit init --path ~/projects/app
 vibe-commit install                      # bare .git/hooks only (legacy)
+vibe-commit install --json               # machine-readable output
 vibe-commit install --path ~/projects/app
 vibe-commit uninstall
+vibe-commit uninstall --json             # machine-readable output
 ```
 
-With `--json`, `init` prints only JSON to stdout:
+With `--json`, `init`, `install`, and `uninstall` print only JSON to stdout:
 
+**init --json:**
 ```json
 {
   "manager": "husky",
@@ -131,6 +134,35 @@ With `--json`, `init` prints only JSON to stdout:
   "backedUp": false
 }
 ```
+
+**install --json:**
+```json
+{
+  "ok": true,
+  "action": "installed",
+  "manager": "bare",
+  "path": "/path/to/.git/hooks/prepare-commit-msg",
+  "hookPath": "/path/to/.git/hooks/prepare-commit-msg",
+  "created": true,
+  "updated": false,
+  "backedUp": false
+}
+```
+
+**uninstall --json:**
+```json
+{
+  "ok": true,
+  "action": "removed",
+  "manager": "bare",
+  "path": "/path/to/.git/hooks/prepare-commit-msg",
+  "hookPath": "/path/to/.git/hooks/prepare-commit-msg",
+  "removed": true,
+  "restored": false
+}
+```
+
+On error with `--json`, the output is `{ "ok": false, "error": "..." }` on stderr with non-zero exit.
 
 **`init` auto-detects your hook manager** in this order:
 

@@ -233,4 +233,107 @@ describe("cli e2e", () => {
     assert.match(result.stdout, /后续步骤/);
   });
 
+  it("install --json outputs machine-readable result", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const result = run(cwd, ["install", "--json"]);
+    assert.equal(result.status, 0, result.stderr);
+    const payload = JSON.parse(result.stdout) as {
+      ok: boolean;
+      action: string;
+      manager: string;
+      path: string;
+      hookPath: string;
+      created: boolean;
+      updated: boolean;
+      backedUp: boolean;
+    };
+    assert.equal(payload.ok, true);
+    assert.equal(payload.action, "installed");
+    assert.equal(payload.manager, "bare");
+    assert.match(payload.path, /prepare-commit-msg$/);
+    assert.match(payload.hookPath, /prepare-commit-msg$/);
+    assert.equal(payload.created, true);
+    assert.equal(payload.updated, false);
+    assert.equal(payload.backedUp, false);
+  });
+
+  it("install --json reports update when already installed", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const first = run(cwd, ["install", "--json"]);
+    assert.equal(first.status, 0, first.stderr);
+    const second = run(cwd, ["install", "--json"]);
+    assert.equal(second.status, 0, second.stderr);
+    const payload = JSON.parse(second.stdout) as {
+      ok: boolean;
+      action: string;
+      created: boolean;
+      updated: boolean;
+    };
+    assert.equal(payload.ok, true);
+    assert.equal(payload.action, "updated");
+    assert.equal(payload.created, false);
+    assert.equal(payload.updated, true);
+  });
+
+  it("uninstall --json outputs machine-readable result", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    run(cwd, ["install"]);
+    const result = run(cwd, ["uninstall", "--json"]);
+    assert.equal(result.status, 0, result.stderr);
+    const payload = JSON.parse(result.stdout) as {
+      ok: boolean;
+      action: string;
+      manager: string;
+      path: string;
+      hookPath: string;
+      removed: boolean;
+      restored: boolean;
+    };
+    assert.equal(payload.ok, true);
+    assert.equal(payload.action, "removed");
+    assert.equal(payload.manager, "bare");
+    assert.match(payload.path, /prepare-commit-msg$/);
+    assert.match(payload.hookPath, /prepare-commit-msg$/);
+    assert.equal(payload.removed, true);
+    assert.equal(payload.restored, false);
+  });
+
+  it("uninstall --json reports skipped when no hook found", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const result = run(cwd, ["uninstall", "--json"]);
+    assert.equal(result.status, 0, result.stderr);
+    const payload = JSON.parse(result.stdout) as {
+      ok: boolean;
+      action: string;
+      removed: boolean;
+      restored: boolean;
+    };
+    assert.equal(payload.ok, true);
+    assert.equal(payload.action, "skipped");
+    assert.equal(payload.removed, false);
+    assert.equal(payload.restored, false);
+  });
+
+  it("install without --json keeps pretty output", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const result = run(cwd, ["install"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /ok.*prepare-commit-msg hook installed/);
+    assert.match(result.stdout, /tip: plain/);
+  });
+
+  it("uninstall without --json keeps pretty output", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    run(cwd, ["install"]);
+    const result = run(cwd, ["uninstall"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /ok.*prepare-commit-msg hook removed/);
+  });
+
 });

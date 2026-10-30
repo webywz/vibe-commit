@@ -16,8 +16,8 @@ const HELP = `vibe-commit — stylish conventional commits, offline-first
 Usage · 用法
   vibe-commit [options]
   vibe-commit init [--path <repo>] [--force] [--json]
-  vibe-commit install [--path <repo>]
-  vibe-commit uninstall [--path <repo>]
+  vibe-commit install [--path <repo>] [--json]
+  vibe-commit uninstall [--path <repo>] [--json]
 
 Commands · 命令
   init                Auto-detect hook manager (husky / simple-git-hooks / bare .git/hooks) and install
@@ -34,8 +34,8 @@ Options · 参数
   --locale <locale>   en | zh                        (default: en)
   --no-ai             Skip AI even if OPENAI_API_KEY is set
   --breaking          Force ! + BREAKING CHANGE footer (text = subject)
-  --json              Print a machine-readable proposal (propose) or result (init)
-                      机器可读提案（propose）或结果（init）
+  --json              Print a machine-readable proposal (propose) or result (init/install/uninstall)
+                      机器可读提案（propose）或结果（init/install/uninstall）
   --github            Emit GitHub Actions annotations (::notice/warning/error)
                       输出 Actions 注解；有 GITHUB_OUTPUT / GITHUB_STEP_SUMMARY 时写输出与 Job Summary
   --quiet             Suppress the pretty terminal report (--json / --github still emit)
