@@ -43,7 +43,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   }
 
   if (options.command === "init") {
-    return runInit(options.path, options.force);
+    return runInit(options.path, options.force, options.json);
   }
   if (options.command === "install") {
     return runInstall(options.path);
@@ -128,11 +128,25 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   }
 }
 
-function runInit(repoPath?: string, force?: boolean): number {
+function runInit(repoPath?: string, force?: boolean, json?: boolean): number {
   try {
     const target = resolve(repoPath ?? process.cwd());
     const result = initHook(target, { force });
 
+    if (json) {
+      // Machine-readable JSON output
+      const output = {
+        manager: result.manager,
+        targetPath: result.targetPath,
+        created: result.created,
+        updated: result.updated,
+        backedUp: result.backedUp,
+      };
+      process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+      return 0;
+    }
+
+    // Pretty output (default)
     const managerLabel: Record<typeof result.manager, string> = {
       husky: "husky",
       "simple-git-hooks": "simple-git-hooks",
