@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it } from "node:test";
 import {
   defaultLocaleFromEnv,
@@ -7,6 +10,20 @@ import {
   parseArgs,
   UsageError,
 } from "../src/parse-args.ts";
+import type { ProjectConfig } from "../src/config.ts";
+
+function createTmpDirWithConfig(config: ProjectConfig): string {
+  const tmpDir = mkdtempSync(join(tmpdir(), "vibe-commit-test-"));
+  writeFileSync(
+    join(tmpDir, ".vibe-commit.json"),
+    JSON.stringify(config),
+  );
+  return tmpDir;
+}
+
+function cleanupTmpDir(tmpDir: string): void {
+  rmSync(tmpDir, { recursive: true, force: true });
+}
 
 describe("parseArgs", () => {
   it("defaults to pro vibe, en locale, and no commit", () => {
@@ -74,9 +91,59 @@ describe("parseArgs", () => {
     );
   });
 
+  it("env vibe takes precedence over project config", () => {
+    const tmpDir = createTmpDirWithConfig({ vibe: "playful" });
+    try {
+      const options = parseArgs([], { VIBE: "terse" }, tmpDir);
+      assert.equal(options.vibe, "terse", "env should win over project config");
+    } finally {
+      cleanupTmpDir(tmpDir);
+    }
+  });
+
+  it("project config vibe is used when env is not set", () => {
+    const tmpDir = createTmpDirWithConfig({ vibe: "terse" });
+    try {
+      const options = parseArgs([], {}, tmpDir);
+      assert.equal(options.vibe, "terse", "project config should be used when env is not set");
+    } finally {
+      cleanupTmpDir(tmpDir);
+    }
+  });
+
   it("reads locale from env when flag is omitted", () => {
     assert.equal(parseArgs([], { VIBE_COMMIT_LOCALE: "zh" }).locale, "zh");
     assert.equal(parseArgs([], { VIBE_COMMIT_LOCALE: "en" }).locale, "en");
+  });
+
+  it("env locale takes precedence over project config", () => {
+    const tmpDir = createTmpDirWithConfig({ locale: "zh" });
+    try {
+      const options = parseArgs([], { VIBE_COMMIT_LOCALE: "en" }, tmpDir);
+      assert.equal(options.locale, "en", "env should win over project config");
+    } finally {
+      cleanupTmpDir(tmpDir);
+    }
+  });
+
+  it("project config locale is used when env is not set", () => {
+    const tmpDir = createTmpDirWithConfig({ locale: "zh" });
+    try {
+      const options = parseArgs([], {}, tmpDir);
+      assert.equal(options.locale, "zh", "project config should be used when env is not set");
+    } finally {
+      cleanupTmpDir(tmpDir);
+    }
+  });
+
+  it("CLI locale takes precedence over env and project config", () => {
+    const tmpDir = createTmpDirWithConfig({ locale: "en" });
+    try {
+      const options = parseArgs(["--locale", "zh"], { VIBE_COMMIT_LOCALE: "en" }, tmpDir);
+      assert.equal(options.locale, "zh", "CLI should win over env and project");
+    } finally {
+      cleanupTmpDir(tmpDir);
+    }
   });
 
   it("parses --locale flag", () => {
