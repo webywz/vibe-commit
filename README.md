@@ -62,11 +62,11 @@ vibe-commit install                 # install bare .git/hooks (legacy)
 | `--locale <locale>` | `en` \| `zh` (default: `en`) · 提交信息主题语言 |
 | `--no-ai` | Skip the API even if `OPENAI_API_KEY` is set · 即使有 Key 也不走 AI |
 | `--breaking` | Force breaking (`!` + `BREAKING CHANGE:` footer = **subject**) · 强制破坏性变更（`!` + footer 文本即 **subject**） |
-| `--json` | Machine-readable proposal · 机器可读提案 |
+| `--json` | Machine-readable proposal (propose) or result (init) · 机器可读提案（propose）或结果（init） |
 | `--github` | Emit GitHub Actions `::notice` / `::warning` / `::error` annotations; write `GITHUB_OUTPUT` + `GITHUB_STEP_SUMMARY` when set · 输出 Actions 注解，并在环境变量存在时写 Job 输出与 Summary |
 | `--quiet` | Suppress the pretty terminal report; `--json` / `--github` still emit · 抑制漂亮终端报告 |
 | `--max-annotations <n>` | Cap `--github` annotation lines (default: 20; invalid → UsageError) · 限制注解条数 |
-| `init [--path] [--force]` | Auto-detect hook manager and install (husky → simple-git-hooks → bare .git/hooks) · 自动检测钩子管理器并安装 |
+| `init [--path] [--force] [--json]` | Auto-detect hook manager and install (husky → simple-git-hooks → bare .git/hooks) · 自动检测钩子管理器并安装 |
 | `install [--path]` | Install the prepare-commit-msg hook (bare .git/hooks) · 安装钩子（直接写 .git/hooks） |
 | `uninstall [--path]` | Remove the managed hook · 卸载钩子 |
 | `--force` | Force overwrite existing hook/config (init only) · 强制覆盖已存在的钩子配置（仅 init） |
@@ -113,10 +113,23 @@ $ vibe-commit
 ```bash
 vibe-commit init                         # auto-detect and install
 vibe-commit init --force                 # overwrite existing hook/config
+vibe-commit init --json                  # machine-readable output
 vibe-commit init --path ~/projects/app
 vibe-commit install                      # bare .git/hooks only (legacy)
 vibe-commit install --path ~/projects/app
 vibe-commit uninstall
+```
+
+With `--json`, `init` prints only JSON to stdout:
+
+```json
+{
+  "manager": "husky",
+  "targetPath": "/path/to/.husky/prepare-commit-msg",
+  "created": true,
+  "updated": false,
+  "backedUp": false
+}
 ```
 
 **`init` auto-detects your hook manager** in this order:

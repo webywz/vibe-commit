@@ -189,4 +189,48 @@ describe("cli e2e", () => {
     assert.match(result.stderr, /^::(notice|warning|error) /m);
   });
 
+  it("init --json outputs machine-readable result (bare)", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const result = run(cwd, ["init", "--json"]);
+    assert.equal(result.status, 0, result.stderr);
+    const payload = JSON.parse(result.stdout) as {
+      manager: string;
+      targetPath: string;
+      created: boolean;
+      updated: boolean;
+      backedUp: boolean;
+    };
+    assert.equal(payload.manager, "bare");
+    assert.match(payload.targetPath, /prepare-commit-msg$/);
+    assert.equal(payload.created, true);
+    assert.equal(payload.updated, false);
+    assert.equal(payload.backedUp, false);
+  });
+
+  it("init --json reports update when already managed", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const first = run(cwd, ["init", "--json"]);
+    assert.equal(first.status, 0, first.stderr);
+    const second = run(cwd, ["init", "--json"]);
+    assert.equal(second.status, 0, second.stderr);
+    const payload = JSON.parse(second.stdout) as {
+      created: boolean;
+      updated: boolean;
+    };
+    assert.equal(payload.created, false);
+    assert.equal(payload.updated, true);
+  });
+
+  it("init without --json keeps pretty output", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const result = run(cwd, ["init"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /ok.*prepare-commit-msg/);
+    assert.match(result.stdout, /Next steps/);
+    assert.match(result.stdout, /后续步骤/);
+  });
+
 });
