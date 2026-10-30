@@ -41,6 +41,7 @@ Requires **Node.js 18.18+** and `git`. Package: [`@webywz/vibe-commit`](https://
 git add -p
 vibe-commit                         # propose from staged diff
 vibe-commit --vibe playful --commit # write the commit
+vibe-commit --breaking --dry-run    # force ! + BREAKING CHANGE footer
 vibe-commit --dry-run               # print only (default; wins over --commit)
 git commit -m "$(vibe-commit --dry-run)"
 vibe-commit install                 # optional prepare-commit-msg hook
@@ -54,6 +55,7 @@ vibe-commit install                 # optional prepare-commit-msg hook
 | `--scope <scope>` | Override inferred scope · 覆盖推断出的 scope |
 | `--vibe <style>` | `playful` \| `pro` \| `terse` (default: `pro`) |
 | `--no-ai` | Skip the API even if `OPENAI_API_KEY` is set · 即使有 Key 也不走 AI |
+| `--breaking` | Force breaking change (`!` + `BREAKING CHANGE:` footer) · 强制破坏性变更（`!` + footer） |
 | `--json` | Machine-readable proposal · 机器可读提案 |
 | `install [--path]` | Install the prepare-commit-msg hook · 安装钩子 |
 | `uninstall [--path]` | Remove the managed hook · 卸载钩子 |

@@ -14,18 +14,29 @@ export async function proposeMessage(
     vibe: options.vibe,
   });
 
-  if (options.preferAi === false) return heuristic;
-  const hasKey = Boolean(env.OPENAI_API_KEY?.trim());
-  if (!hasKey) return heuristic;
+  let message: ProposedMessage;
+  if (options.preferAi === false) {
+    message = heuristic;
+  } else {
+    const hasKey = Boolean(env.OPENAI_API_KEY?.trim());
+    if (!hasKey) {
+      message = heuristic;
+    } else {
+      const ai = await proposeWithAi(
+        {
+          diff,
+          vibe: options.vibe,
+          type: options.type,
+          scope: options.scope,
+        },
+        env,
+      );
+      message = ai ?? heuristic;
+    }
+  }
 
-  const ai = await proposeWithAi(
-    {
-      diff,
-      vibe: options.vibe,
-      type: options.type,
-      scope: options.scope,
-    },
-    env,
-  );
-  return ai ?? heuristic;
+  if (options.breaking) {
+    return { ...message, breaking: true };
+  }
+  return message;
 }

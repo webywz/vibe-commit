@@ -32,10 +32,43 @@ describe("formatCommit", () => {
     );
   });
 
-  it("marks breaking changes", () => {
+  it("marks breaking changes with bang and BREAKING CHANGE footer", () => {
     assert.equal(
       formatCommit(msg({ scope: "api", breaking: true })),
-      "feat(api)!: add login",
+      "feat(api)!: add login\n\nBREAKING CHANGE: add login",
+    );
+  });
+
+  it("appends BREAKING CHANGE footer after an existing body", () => {
+    assert.equal(
+      formatCommit(
+        msg({ breaking: true, body: "Keep tokens rotating." }),
+      ),
+      "feat!: add login\n\nKeep tokens rotating.\n\nBREAKING CHANGE: add login",
+    );
+  });
+
+  it("does not duplicate an existing BREAKING CHANGE footer", () => {
+    assert.equal(
+      formatCommit(
+        msg({
+          breaking: true,
+          body: "Details.\n\nBREAKING CHANGE: drop legacy auth",
+        }),
+      ),
+      "feat!: add login\n\nDetails.\n\nBREAKING CHANGE: drop legacy auth",
+    );
+  });
+
+  it("treats BREAKING-CHANGE spelling as already present", () => {
+    assert.equal(
+      formatCommit(
+        msg({
+          breaking: true,
+          body: "BREAKING-CHANGE: rename API",
+        }),
+      ),
+      "feat!: add login\n\nBREAKING-CHANGE: rename API",
     );
   });
 
