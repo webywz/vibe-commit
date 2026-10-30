@@ -10,6 +10,7 @@ export {
   detectBreakingKind,
   formatBreakingReason,
   breakingFooterDetail,
+  DEFAULT_BREAKING_FOOTER_DETAIL,
   ensureBreakingFooter,
   classifyPath,
 } from "./heuristic.ts";

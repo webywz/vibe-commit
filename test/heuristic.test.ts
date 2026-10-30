@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { formatCommit } from "../src/format.ts";
 import {
+  DEFAULT_BREAKING_FOOTER_DETAIL,
   detectBreakingKind,
   ensureBreakingFooter,
   formatBreakingReason,
@@ -347,7 +348,9 @@ describe("proposeHeuristic", () => {
     });
     assert.equal(proposal.breaking, true);
     assert.equal(proposal.breakingReason, formatBreakingReason("forced"));
-    assert.match(proposal.body ?? "", /^BREAKING CHANGE:/);
+    // Forced + inferred English subject → footer uses subject (no bilingual default).
+    assert.equal(proposal.body, `BREAKING CHANGE: ${proposal.subject}`);
+    assert.doesNotMatch(proposal.body ?? "", /·|不兼容/);
     assert.match(formatCommit(proposal), /!/);
   });
 
@@ -460,6 +463,63 @@ describe("ensureBreakingFooter", () => {
       engine: "heuristic" as const,
     };
     assert.equal(ensureBreakingFooter(message).body, message.body);
+  });
+
+  it("uses English subject for forced breaking (not bilingual default)", () => {
+    const message = {
+      type: "feat" as const,
+      subject: "drop legacy auth",
+      breaking: true,
+      engine: "heuristic" as const,
+    };
+    const out = ensureBreakingFooter(message, message.subject);
+    assert.equal(out.body, "BREAKING CHANGE: drop legacy auth");
+    assert.doesNotMatch(out.body ?? "", /·|不兼容/);
+  });
+
+  it("prefers subject when reason is empty or the generic bilingual default", () => {
+    const message = {
+      type: "feat" as const,
+      subject: "drop legacy auth",
+      breaking: true,
+      engine: "heuristic" as const,
+    };
+    assert.equal(
+      ensureBreakingFooter(message).body,
+      "BREAKING CHANGE: drop legacy auth",
+    );
+    assert.equal(
+      ensureBreakingFooter(message, DEFAULT_BREAKING_FOOTER_DETAIL).body,
+      "BREAKING CHANGE: drop legacy auth",
+    );
+  });
+
+  it("keeps heuristic bilingual detail for export/major reasons", () => {
+    const message = {
+      type: "feat" as const,
+      subject: "drop legacy auth",
+      breaking: true,
+      engine: "heuristic" as const,
+    };
+    const detail =
+      "remove public export legacyLogin · 删除公开 export legacyLogin";
+    assert.equal(
+      ensureBreakingFooter(message, detail).body,
+      `BREAKING CHANGE: ${detail}`,
+    );
+  });
+
+  it("falls back to bilingual default only when subject is empty", () => {
+    const message = {
+      type: "feat" as const,
+      subject: "   ",
+      breaking: true,
+      engine: "heuristic" as const,
+    };
+    assert.equal(
+      ensureBreakingFooter(message).body,
+      `BREAKING CHANGE: ${DEFAULT_BREAKING_FOOTER_DETAIL}`,
+    );
   });
 });
 
