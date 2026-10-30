@@ -310,7 +310,7 @@ export function formatBreakingReason(kind: BreakingKind): string {
     case "major-bump":
       return "major bump · package.json 主版本升级";
     case "footer":
-      return "BREAKING CHANGE footer in diff";
+      return "BREAKING CHANGE footer in diff · 变更中含 BREAKING CHANGE 页脚";
     case "forced":
       return "forced via --breaking · --breaking 强制";
   }
