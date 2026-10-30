@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync, realpathSync } from "node:fs";
+import { readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import pc from "picocolors";
@@ -93,18 +93,43 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     }
 
     if (options.json) {
-      process.stdout.write(
-        `${JSON.stringify({ ...message, formatted }, null, 2)}\n`,
-      );
+      const jsonOutput = `${JSON.stringify({ ...message, formatted }, null, 2)}\n`;
+      process.stdout.write(jsonOutput);
+      if (options.out) {
+        try {
+          writeFileSync(options.out, jsonOutput, "utf8");
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          process.stderr.write(`vibe-commit: failed to write --out ${options.out}: ${msg}\n`);
+          return 1;
+        }
+      }
     } else if (!options.quiet) {
+      let report: string;
+      if (piped && !options.out) {
+        // Piped output without --out: just the formatted message
+        report = `${formatted}\n`;
+      } else {
+        // Normal terminal or --out: full report
+        report = renderProposal(diff, message);
+      }
+      
       if (options.github) {
         process.stdout.write("::group::vibe-commit report\n");
       }
-      if (piped) {
-        process.stdout.write(`${formatted}\n`);
+      
+      if (options.out) {
+        try {
+          writeFileSync(options.out, report, "utf8");
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          process.stderr.write(`vibe-commit: failed to write --out ${options.out}: ${msg}\n`);
+          return 1;
+        }
       } else {
-        process.stdout.write(renderProposal(diff, message));
+        process.stdout.write(report);
       }
+      
       if (options.github) {
         process.stdout.write("::endgroup::\n");
       }

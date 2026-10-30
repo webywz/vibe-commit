@@ -44,6 +44,8 @@ Options · 参数
   --path <repo>       Repo root for init/install/uninstall (default: cwd)
   --force             Force overwrite when init target already exists (init only)
                       强制覆盖已存在的钩子配置（仅 init）
+  --out <file>        Write report (or JSON body with --json) to file (propose only)
+                      写报告（或搭配 --json 写 JSON）到文件（仅 propose）
   -h, --help          Show help
   -v, --version       Show version
 
@@ -221,6 +223,12 @@ export function parseArgs(
       options.path = value;
       continue;
     }
+    if (arg === "--out" || arg.startsWith("--out=")) {
+      const value = arg.includes("=") ? arg.slice("--out=".length) : argv[++i];
+      if (!value) throw new UsageError("Missing value for --out");
+      options.out = value;
+      continue;
+    }
     if (arg.startsWith("-")) {
       throw new UsageError(`Unknown option: ${arg}`);
     }
@@ -257,6 +265,10 @@ export function parseArgs(
 
   if (options.force && options.command !== "init") {
     throw new UsageError("--force is only valid with init");
+  }
+
+  if (options.out && options.command !== "propose") {
+    throw new UsageError("--out is only valid with propose (default command)");
   }
 
   return options;
