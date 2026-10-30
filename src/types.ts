@@ -45,6 +45,8 @@ export interface ProposedMessage {
   subject: string;
   body?: string;
   breaking: boolean;
+  /** Short cause when breaking (export removed / major bump / --breaking / footer). */
+  breakingReason?: string;
   engine: Engine;
 }
 

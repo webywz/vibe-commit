@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { formatCommit } from "../src/format.ts";
 import {
+  detectBreakingKind,
   ensureBreakingFooter,
+  formatBreakingReason,
   inferBreaking,
   inferScope,
   inferSubject,
@@ -258,6 +260,10 @@ describe("proposeHeuristic", () => {
       vibe: "pro",
     });
     assert.equal(proposal.breaking, true);
+    assert.equal(
+      proposal.breakingReason,
+      formatBreakingReason("export-removed"),
+    );
     assert.match(proposal.body ?? "", /BREAKING CHANGE: remove public export legacyLogin/);
     assert.match(formatCommit(proposal), /!/);
   });
@@ -277,6 +283,7 @@ describe("proposeHeuristic", () => {
       vibe: "pro",
     });
     assert.equal(major.breaking, true);
+    assert.equal(major.breakingReason, formatBreakingReason("major-bump"));
     assert.match(major.body ?? "", /BREAKING CHANGE: bump major version to 1\.0\.0/);
 
     const patch = proposeHeuristic({
@@ -302,6 +309,7 @@ describe("proposeHeuristic", () => {
       breaking: true,
     });
     assert.equal(proposal.breaking, true);
+    assert.equal(proposal.breakingReason, formatBreakingReason("forced"));
     assert.match(proposal.body ?? "", /^BREAKING CHANGE:/);
     assert.match(formatCommit(proposal), /!/);
   });
@@ -374,6 +382,24 @@ describe("inferBreaking", () => {
       ),
       false,
     );
+  });
+});
+
+
+describe("detectBreakingKind", () => {
+  it("prefers export removal over forced", () => {
+    const diff = stagedDiff(
+      [stagedFile({ path: "src/api.ts", deletions: 1, additions: 0 })],
+      [deletedLines("src/api.ts", "export function gone() {}")],
+    );
+    assert.equal(detectBreakingKind(diff, true), "export-removed");
+    assert.equal(detectBreakingKind(diff, false), "export-removed");
+  });
+
+  it("returns forced when only --breaking is set", () => {
+    const diff = stagedDiff([stagedFile({ path: "src/auth.ts" })]);
+    assert.equal(detectBreakingKind(diff, true), "forced");
+    assert.equal(detectBreakingKind(diff, false), undefined);
   });
 });
 

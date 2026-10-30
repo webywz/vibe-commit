@@ -7,9 +7,13 @@ export {
   inferScope,
   inferSubject,
   inferBreaking,
+  detectBreakingKind,
+  formatBreakingReason,
+  breakingFooterDetail,
   ensureBreakingFooter,
   classifyPath,
 } from "./heuristic.ts";
+export type { BreakingKind } from "./heuristic.ts";
 export { parseArgs, helpText, UsageError } from "./parse-args.ts";
 export { assembleDiff, parseUnifiedDiff } from "./parse-diff.ts";
 export {
