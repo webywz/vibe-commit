@@ -1,28 +1,76 @@
 # vibe-commit
 
-**Stylish conventional commits. Offline-first. AI-optional.**
+<p align="center">
+  <a href="https://github.com/webywz/vibe-commit/actions/workflows/ci.yml"><img src="https://github.com/webywz/vibe-commit/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://www.npmjs.com/package/@webywz/vibe-commit"><img src="https://img.shields.io/npm/v/@webywz/vibe-commit.svg" alt="npm" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT" /></a>
+</p>
 
-Stage your files, run one command, get a commit message that looks like you meant it.
+<p align="center">
+  <strong>Stylish conventional commits. Offline-first. AI-optional.</strong><br/>
+  Stage your files, run one command, get a commit message that looks like you meant it.
+</p>
 
-一条命令，根据暂存区 diff 写出有品味的 [Conventional Commits](https://www.conventionalcommits.org/)。**无 API Key 也能用**，有 Key 时再可选 AI。
+<p align="center">
+  有品味的 Conventional Commits。离线优先，AI 可选。<br/>
+  暂存改动，一条命令，写出像你认真写过的提交信息。
+</p>
 
-[![CI](https://github.com/webywz/vibe-commit/actions/workflows/ci.yml/badge.svg)](https://github.com/webywz/vibe-commit/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@webywz/vibe-commit.svg)](https://www.npmjs.com/package/@webywz/vibe-commit)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+Companion spirit to [diff-vibe](https://github.com/webywz/diff-vibe): commits here, pull requests there.
+
+与 [diff-vibe](https://github.com/webywz/diff-vibe) 成对：这边写 commit，那边写 PR。
 
 ---
 
-## Demo
+## Install · 安装
+
+```bash
+npm i -g @webywz/vibe-commit
+npx @webywz/vibe-commit
+```
+
+Requires **Node.js 18.18+** and `git`. Package: [`@webywz/vibe-commit`](https://www.npmjs.com/package/@webywz/vibe-commit). Binary: `vibe-commit`.
+
+需要 **Node.js 18.18+** 与 `git`。包名 `@webywz/vibe-commit`，命令仍是 `vibe-commit`。
+
+---
+
+## Quick start · 快速开始
+
+```bash
+git add -p
+vibe-commit                         # propose from staged diff
+vibe-commit --vibe playful --commit # write the commit
+vibe-commit --dry-run               # print only (default; wins over --commit)
+git commit -m "$(vibe-commit --dry-run)"
+vibe-commit install                 # optional prepare-commit-msg hook
+```
+
+| Flag / command | What it does · 作用 |
+| --- | --- |
+| `--commit` | Run `git commit` with the proposed message · 用生成信息执行提交 |
+| `--dry-run` | Print only; never commit (default) · 只打印，不提交（默认） |
+| `--type <type>` | Force `feat` / `fix` / `docs` / `style` / `refactor` / `perf` / `test` / `build` / `ci` / `chore` |
+| `--scope <scope>` | Override inferred scope · 覆盖推断出的 scope |
+| `--vibe <style>` | `playful` \| `pro` \| `terse` (default: `pro`) |
+| `--no-ai` | Skip the API even if `OPENAI_API_KEY` is set · 即使有 Key 也不走 AI |
+| `--json` | Machine-readable proposal · 机器可读提案 |
+| `install [--path]` | Install the prepare-commit-msg hook · 安装钩子 |
+| `uninstall [--path]` | Remove the managed hook · 卸载钩子 |
+| `-h` / `-v` | Help / version · 帮助 / 版本 |
+
+**Vibes** · 语气
+
+- **pro** — default. Imperative, review-ready. · 默认：祈使句，可进 review。
+- **terse** — headline only, filler gone. · 只留标题，去掉废话。
+- **playful** — a little personality, still safe for a real repo. · 带一点性格，但仍适合正经仓库。
 
 ```text
-$ git add src/heuristic.ts
 $ vibe-commit
 
   vibe-commit  ·  heuristic  ·  feat
 
   1 file  ·  +124  −8
-
-    M  src/heuristic.ts  +124 −8
 
   proposed
 
@@ -31,142 +79,42 @@ $ vibe-commit
   next  vibe-commit --commit
 ```
 
-```text
-$ vibe-commit --vibe playful --commit
-    feat(cli): ship offline heuristic commit messages — quietly useful
-  committed
-```
-
-Pipe-friendly when stdout is not a TTY:
-
-```bash
-git commit -m "$(vibe-commit --dry-run)"
-```
-
----
-
-## Install · 安装
-
-```bash
-npm install -g @webywz/vibe-commit
-# or, no install:
-npx @webywz/vibe-commit
-```
-
-Requires **Node.js 18.18+** and `git`. After install, the CLI binary is still `vibe-commit`.
-
-```bash
-npm i -g @webywz/vibe-commit          # 全局安装
-npx @webywz/vibe-commit               # 一次性运行
-```
-
----
-
-## Usage · 用法
-
-```bash
-git add -p          # stage the work you actually want to commit
-vibe-commit         # inspect the staged diff, print a proposal
-vibe-commit --commit
-vibe-commit install # optional: fill empty messages on plain `git commit`
-```
-
-| Flag | What it does · 作用 |
-| --- | --- |
-| `--commit` | Run `git commit` with the proposed message · 用生成的信息执行提交 |
-| `--dry-run` | Print only; never commit (default, and wins over `--commit`) |
-| `--type <type>` | Force `feat` / `fix` / `docs` / `style` / `refactor` / `perf` / `test` / `build` / `ci` / `chore` |
-| `--scope <scope>` | Override inferred scope · 覆盖推断出的 scope |
-| `--vibe <style>` | `playful` \| `pro` \| `terse` (default: `pro`) |
-| `--no-ai` | Skip the API even if `OPENAI_API_KEY` is set |
-| `--json` | Machine-readable proposal |
-| `-h`, `--help` | Help |
-| `-v`, `--version` | Version |
-| `install [--path]` | Install the prepare-commit-msg hook · 安装钩子 |
-| `uninstall [--path]` | Remove the managed hook · 卸载钩子 |
-
-### Vibes
-
-- **pro** — default. Imperative, review-ready, conventional.
-- **terse** — headline only, filler words gone.
-- **playful** — a little personality, still safe for a real repo.
-
-默认 **pro**：专业、祈使句、可直接进 code review。`terse` 更短；`playful` 带一点俏皮，但不会变成段子。
-
----
-
-## How it works · 原理
-
-1. Read **staged** changes only (`git diff --cached`). Unstaged noise is ignored.
-2. **Offline heuristic** (always on): file paths + hunk keywords + added identifiers → `type`, `scope`, `subject`.
-   - `README` / `docs/` → `docs`
-   - `*.test.ts` / `test/` → `test`
-   - `.github/workflows` → `ci`
-   - lockfiles / `package.json` → `chore`
-   - `fix` / `bug` / `crash` in the diff → `fix`
-   - new files / `export function` → `feat`
-3. If `OPENAI_API_KEY` is set, ask an OpenAI-compatible model and **fall back to the heuristic** on any failure.
-4. Print a proposal. With `--commit`, run `git commit` (headline + optional body as two `-m` flags — no shell interpolation).
-
-只看 **已暂存** 的 diff。启发式始终可用；配置了 API Key 才走模型，失败自动回退。
-
----
-
-## AI (optional)
-
-```bash
-export OPENAI_API_KEY=sk-...
-# optional:
-export OPENAI_MODEL=gpt-4o-mini
-export OPENAI_BASE_URL=https://api.openai.com/v1   # any compatible gateway
-export VIBE_COMMIT_VIBE=pro
-```
-
-Copy `.env.example` if you keep secrets in a file. vibe-commit never sends unstaged files, and it truncates huge diffs.
-
-兼容 OpenAI Chat Completions。没 Key、超时、4xx/5xx → 静默回退到离线启发式，CLI 仍然能给出一条能用的信息。
-
----
-
----
-
-## Git hook · 钩子
-
-Install a managed `prepare-commit-msg` hook so plain `git commit` (without `-m`) gets a vibe-commit proposal when the message file is empty or comment-only:
+### Git hook · 钩子
 
 ```bash
 vibe-commit install
-# or:
 vibe-commit install --path ~/projects/app
-
 vibe-commit uninstall
-vibe-commit uninstall --path ~/projects/app
 ```
 
-**What the hook does**
+After install, plain `git commit` (no `-m`) fills an empty or comment-only message file with a conventional proposal.
 
-- Runs on `prepare-commit-msg` and writes a conventional message into the commit message file.
-- Stays **offline by default** inside the hook (set `VIBE_COMMIT_HOOK_AI=1` to allow AI).
-- Uses unique markers (`# BEGIN VIBE-COMMIT` … `# END VIBE-COMMIT`) so uninstall is clean.
-- If a foreign `prepare-commit-msg` already exists, it is backed up to `prepare-commit-msg.vibe-backup` and chained after ours.
+安装后，裸 `git commit`（没有 `-m`）会在空 / 仅注释的提交说明里填入提案。
 
-**What the hook skips**
-
-| Situation | Behavior |
+| Situation · 情况 | Behavior · 行为 |
 | --- | --- |
-| Source is `merge`, `squash`, or `commit` (amend) | Leave the message alone |
-| Message file already has non-comment text (e.g. `git commit -m`) | Never overwrite |
-| No staged changes / generator error | Exit 0 — never break the commit |
+| Source is `merge`, `squash`, or `commit` (amend) | Leave the message alone · 不改 |
+| Message already has non-comment text (e.g. `git commit -m`) | Never overwrite · 绝不覆盖 |
+| No staged changes / generator error | Exit 0 — never break the commit · 以 0 退出，不打断提交 |
+
+Hook stays **offline by default** (`VIBE_COMMIT_HOOK_AI=1` to allow AI). Unique markers (`# BEGIN VIBE-COMMIT` … `# END VIBE-COMMIT`) keep uninstall clean. A foreign `prepare-commit-msg` is backed up to `prepare-commit-msg.vibe-backup` and chained after ours.
+
+钩子默认离线；设 `VIBE_COMMIT_HOOK_AI=1` 才允许 AI。用标记块保证干净卸载。已有外来钩子会备份并链式调用。
+
+### AI (optional) · AI（可选）
 
 ```bash
-git add -p
-git commit          # editor opens with a proposed conventional message
-git commit -m "x"   # untouched — your -m wins
+export OPENAI_API_KEY=sk-...
+export OPENAI_MODEL=gpt-4o-mini          # optional
+export OPENAI_BASE_URL=https://api.openai.com/v1
+export VIBE_COMMIT_VIBE=pro              # or VIBE
 ```
 
----
+OpenAI-compatible Chat Completions. Missing key, timeout, or 4xx/5xx → silent fallback to the offline heuristic. See [`.env.example`](.env.example). Unstaged files are never sent; huge diffs are truncated.
 
-## Library
+兼容 OpenAI Chat Completions。没 Key、超时或 4xx/5xx → 静默回退离线启发式。可参考 `.env.example`。不会上传未暂存文件；过大 diff 会截断。
+
+### Library · 库
 
 ```ts
 import { proposeHeuristic, formatCommit } from "@webywz/vibe-commit";
@@ -178,21 +126,33 @@ console.log(formatCommit(message));
 
 ---
 
-## Develop · 开发
+## Features · 特性
+
+1. Reads **staged** changes only (`git diff --cached`). Unstaged noise is ignored.
+   只读 **已暂存** 改动；忽略未暂存噪音。
+2. **Offline heuristic** always on: paths + hunk keywords + added identifiers → `type`, `scope`, `subject`.
+   **离线启发式**始终开启：路径 + hunk 关键词 + 新增标识 → `type` / `scope` / `subject`。
+   - `README` / `docs/` → `docs`
+   - `*.test.ts` / `test/` → `test`
+   - `.github/workflows` → `ci`
+   - lockfiles / `package.json` → `chore`
+   - `fix` / `bug` / `crash` in the diff → `fix`
+   - new files / `export function` → `feat`
+3. Optional AI draft with automatic heuristic fallback.
+   可选 AI 草稿，失败自动回退启发式。
+4. Managed `prepare-commit-msg` hook via `install` / `uninstall`.
+   通过 `install` / `uninstall` 管理 `prepare-commit-msg` 钩子。
+
+---
+
+## Links · 链接
+
+- npm · [`@webywz/vibe-commit`](https://www.npmjs.com/package/@webywz/vibe-commit)
+- Source · [github.com/webywz/vibe-commit](https://github.com/webywz/vibe-commit)
+- Related · [diff-vibe](https://github.com/webywz/diff-vibe) · [prompt-diff](https://github.com/webywz/prompt-diff)
+- License · [MIT](./LICENSE)
 
 ```bash
-git clone https://github.com/webywz/vibe-commit
-cd vibe-commit
-npm install
-npm test
-npm run build
+npm install && npm test && npm run build
 node dist/cli.js --help
 ```
-
-| Script |  |
-| --- | --- |
-| `npm test` | Unit + e2e tests (`node:test` + `tsx`) |
-| `npm run build` | Emit `dist/` (shebang + executable bit on `dist/cli.js`) |
-| `npm run typecheck` | `tsc --noEmit` |
-
-MIT © webywz — see [LICENSE](./LICENSE).
