@@ -370,4 +370,39 @@ describe("cli e2e", () => {
     assert.match(result.stderr, /failed to write --out/);
   });
 
+  it("--no-color strips ANSI codes from human-readable output", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const result = run(cwd, ["--no-ai", "--no-color"], { NO_COLOR: "" });
+    assert.equal(result.status, 0, result.stderr);
+    const ansiPattern = /\x1b\[\d+m/;
+    assert.ok(!ansiPattern.test(result.stdout), "output should not contain ANSI codes with --no-color");
+    assert.match(result.stdout, /feat\(auth\)/);
+  });
+
+  it("NO_COLOR env strips ANSI codes from human-readable output", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const result = run(cwd, ["--no-ai"], { NO_COLOR: "1" });
+    assert.equal(result.status, 0, result.stderr);
+    const ansiPattern = /\x1b\[\d+m/;
+    assert.ok(!ansiPattern.test(result.stdout), "output should not contain ANSI codes with NO_COLOR=1");
+    assert.match(result.stdout, /feat\(auth\)/);
+  });
+
+  it("--json output has no ANSI codes regardless of --no-color", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const resultWithColor = run(cwd, ["--no-ai", "--json"], { NO_COLOR: "" });
+    assert.equal(resultWithColor.status, 0);
+    const ansiPattern = /\x1b\[\d+m/;
+    assert.ok(!ansiPattern.test(resultWithColor.stdout), "JSON output should never contain ANSI codes");
+    const resultNoColor = run(cwd, ["--no-ai", "--json", "--no-color"], { NO_COLOR: "" });
+    assert.equal(resultNoColor.status, 0);
+    assert.ok(!ansiPattern.test(resultNoColor.stdout), "JSON output should never contain ANSI codes");
+    const payloadWithColor = JSON.parse(resultWithColor.stdout) as { formatted: string };
+    const payloadNoColor = JSON.parse(resultNoColor.stdout) as { formatted: string };
+    assert.equal(payloadWithColor.formatted, payloadNoColor.formatted, "JSON payload should be identical");
+  });
+
 });

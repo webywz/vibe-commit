@@ -27,7 +27,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     options = parseArgs(argv);
   } catch (error) {
     if (error instanceof UsageError) {
-      process.stderr.write(`${renderError(error.message)}\n\n${helpText()}`);
+      process.stderr.write(`${renderError(error.message, Boolean(process.env.NO_COLOR))}\n\n${helpText()}`);
       return 1;
     }
     throw error;
@@ -38,18 +38,18 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     return 0;
   }
   if (options.version) {
-    process.stdout.write(`${renderVersion(readVersion())}\n`);
+    process.stdout.write(`${renderVersion(readVersion(), options.noColor)}\n`);
     return 0;
   }
 
   if (options.command === "init") {
-    return runInit(options.path, options.force, options.json);
+    return runInit(options.path, options.force, options.json, options.noColor);
   }
   if (options.command === "install") {
-    return runInstall(options.path, options.json);
+    return runInstall(options.path, options.json, options.noColor);
   }
   if (options.command === "uninstall") {
-    return runUninstall(options.path, options.json);
+    return runUninstall(options.path, options.json, options.noColor);
   }
   if (options.command === "prepare-commit-msg") {
     return runHookPrepare(options.messageFile!, options.commitSource);
@@ -107,11 +107,9 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     } else if (!options.quiet) {
       let report: string;
       if (piped && !options.out) {
-        // Piped output without --out: just the formatted message
         report = `${formatted}\n`;
       } else {
-        // Normal terminal or --out: full report
-        report = renderProposal(diff, message);
+        report = renderProposal(diff, message, { noColor: options.noColor });
       }
       
       if (options.github) {
@@ -138,7 +136,8 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     if (shouldCommit) {
       commitWithMessage(formatted);
       if (!piped && !options.json && !options.quiet) {
-        process.stdout.write(`  ${pc.green("committed")}\n\n`);
+        const colors = options.noColor ? pc.createColors(false) : pc;
+        process.stdout.write(`  ${colors.green("committed")}\n\n`);
       }
     }
 
@@ -148,18 +147,17 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       error instanceof GitError || error instanceof Error
         ? error.message
         : "Unexpected error";
-    process.stderr.write(`${renderError(text)}\n`);
+    process.stderr.write(`${renderError(text, options.noColor)}\n`);
     return 1;
   }
 }
 
-function runInit(repoPath?: string, force?: boolean, json?: boolean): number {
+function runInit(repoPath?: string, force?: boolean, json?: boolean, noColor = false): number {
   try {
     const target = resolve(repoPath ?? process.cwd());
     const result = initHook(target, { force });
 
     if (json) {
-      // Machine-readable JSON output
       const output = {
         manager: result.manager,
         targetPath: result.targetPath,
@@ -171,7 +169,7 @@ function runInit(repoPath?: string, force?: boolean, json?: boolean): number {
       return 0;
     }
 
-    // Pretty output (default)
+    const colors = noColor ? pc.createColors(false) : pc;
     const managerLabel: Record<typeof result.manager, string> = {
       husky: "husky",
       "simple-git-hooks": "simple-git-hooks",
@@ -185,7 +183,7 @@ function runInit(repoPath?: string, force?: boolean, json?: boolean): number {
         : "configured";
 
     process.stdout.write(
-      `${pc.green("ok")}  prepare-commit-msg hook ${action} (${managerLabel[result.manager]})\n` +
+      `${colors.green("ok")}  prepare-commit-msg hook ${action} (${managerLabel[result.manager]})\n` +
         `     ${result.targetPath}\n`,
     );
 
@@ -195,23 +193,22 @@ function runInit(repoPath?: string, force?: boolean, json?: boolean): number {
       );
     }
 
-    // Next steps (bilingual)
     process.stdout.write("\n");
-    process.stdout.write(`${pc.bold("Next steps")} · 后续步骤\n`);
+    process.stdout.write(`${colors.bold("Next steps")} · 后续步骤\n`);
 
     if (result.manager === "simple-git-hooks") {
       process.stdout.write(
-        `  1. Run ${pc.cyan("npx simple-git-hooks")} to install hooks\n` +
-          `     运行 ${pc.cyan("npx simple-git-hooks")} 安装钩子\n`,
+        `  1. Run ${colors.cyan("npx simple-git-hooks")} to install hooks\n` +
+          `     运行 ${colors.cyan("npx simple-git-hooks")} 安装钩子\n`,
       );
       process.stdout.write(
-        `  2. Plain ${pc.cyan("git commit")} (no -m) will fill an empty message\n` +
-          `     裸 ${pc.cyan("git commit")}（无 -m）会填充空消息\n`,
+        `  2. Plain ${colors.cyan("git commit")} (no -m) will fill an empty message\n` +
+          `     裸 ${colors.cyan("git commit")}（无 -m）会填充空消息\n`,
       );
     } else {
       process.stdout.write(
-        `  • Plain ${pc.cyan("git commit")} (no -m) will fill an empty message\n` +
-          `    裸 ${pc.cyan("git commit")}（无 -m）会填充空消息\n`,
+        `  • Plain ${colors.cyan("git commit")} (no -m) will fill an empty message\n` +
+          `    裸 ${colors.cyan("git commit")}（无 -m）会填充空消息\n`,
       );
     }
 
@@ -222,12 +219,12 @@ function runInit(repoPath?: string, force?: boolean, json?: boolean): number {
       error instanceof GitError || error instanceof Error
         ? error.message
         : "Unexpected error";
-    process.stderr.write(`${renderError(text)}\n`);
+    process.stderr.write(`${renderError(text, noColor)}\n`);
     return 1;
   }
 }
 
-function runInstall(repoPath?: string, json?: boolean): number {
+function runInstall(repoPath?: string, json?: boolean, noColor = false): number {
   try {
     const target = resolve(repoPath ?? process.cwd());
     const result = installHook(target);
@@ -247,13 +244,14 @@ function runInstall(repoPath?: string, json?: boolean): number {
       return 0;
     }
 
+    const colors = noColor ? pc.createColors(false) : pc;
     const action = result.updated
       ? "updated"
       : result.created
         ? "installed"
         : "installed";
     process.stdout.write(
-      `${pc.green("ok")}  prepare-commit-msg hook ${action}\n` +
+      `${colors.green("ok")}  prepare-commit-msg hook ${action}\n` +
         `     ${result.hookPath}\n`,
     );
     if (result.backedUp) {
@@ -277,12 +275,12 @@ function runInstall(repoPath?: string, json?: boolean): number {
       error instanceof GitError || error instanceof Error
         ? error.message
         : "Unexpected error";
-    process.stderr.write(`${renderError(text)}\n`);
+    process.stderr.write(`${renderError(text, noColor)}\n`);
     return 1;
   }
 }
 
-function runUninstall(repoPath?: string, json?: boolean): number {
+function runUninstall(repoPath?: string, json?: boolean, noColor = false): number {
   try {
     const target = resolve(repoPath ?? process.cwd());
     const result = uninstallHook(target);
@@ -314,15 +312,16 @@ function runUninstall(repoPath?: string, json?: boolean): number {
       return 0;
     }
 
+    const colors = noColor ? pc.createColors(false) : pc;
     if (!result.removed) {
       process.stdout.write(
-        `${pc.yellow("skip")}  no managed vibe-commit hook found\n` +
+        `${colors.yellow("skip")}  no managed vibe-commit hook found\n` +
           `      ${result.hookPath}\n`,
       );
       return 0;
     }
     process.stdout.write(
-      `${pc.green("ok")}  prepare-commit-msg hook removed\n` +
+      `${colors.green("ok")}  prepare-commit-msg hook removed\n` +
         `     ${result.hookPath}\n`,
     );
     if (result.restored) {
@@ -341,7 +340,7 @@ function runUninstall(repoPath?: string, json?: boolean): number {
       error instanceof GitError || error instanceof Error
         ? error.message
         : "Unexpected error";
-    process.stderr.write(`${renderError(text)}\n`);
+    process.stderr.write(`${renderError(text, noColor)}\n`);
     return 1;
   }
 }
@@ -389,7 +388,7 @@ if (isDirectRun()) {
     (code) => process.exit(code),
     (error: unknown) => {
       process.stderr.write(
-        `${renderError(error instanceof Error ? error.message : "Unexpected error")}\n`,
+        `${renderError(error instanceof Error ? error.message : "Unexpected error", Boolean(process.env.NO_COLOR))}\n`,
       );
       process.exit(1);
     },

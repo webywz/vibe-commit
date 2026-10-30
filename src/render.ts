@@ -5,8 +5,9 @@ import type { ProposedMessage, StagedDiff } from "./types.ts";
 export function renderProposal(
   diff: StagedDiff,
   message: ProposedMessage,
-  hints: { committed?: boolean; piped?: boolean } = {},
+  hints: { committed?: boolean; piped?: boolean; noColor?: boolean } = {},
 ): string {
+  const colors = hints.noColor ? pc.createColors(false) : pc;
   const formatted = formatCommit(message);
   if (hints.piped) return formatted;
 
@@ -23,38 +24,38 @@ export function renderProposal(
     message.engine === "ai" ? "openai" : "heuristic";
   const fileLines = diff.files.slice(0, 10).map((file) => {
     const stats = `+${file.additions} −${file.deletions}`;
-    return `    ${pc.dim(file.status)}  ${file.path}  ${pc.dim(stats)}`;
+    return `    ${colors.dim(file.status)}  ${file.path}  ${colors.dim(stats)}`;
   });
   if (diff.files.length > 10) {
-    fileLines.push(pc.dim(`    … ${diff.files.length - 10} more`));
+    fileLines.push(colors.dim(`    … ${diff.files.length - 10} more`));
   }
 
   const lines = [
     "",
-    `  ${pc.bold("vibe-commit")}  ${pc.dim("·")}  ${pc.cyan(engine)}  ${pc.dim("·")}  ${message.type}`,
+    `  ${colors.bold("vibe-commit")}  ${colors.dim("·")}  ${colors.cyan(engine)}  ${colors.dim("·")}  ${message.type}`,
     "",
-    `  ${pc.bold(String(diff.files.length))} ${fileLabel}  ${pc.dim("·")}  ${pc.green(`+${totals.add}`)}  ${pc.red(`−${totals.del}`)}`,
+    `  ${colors.bold(String(diff.files.length))} ${fileLabel}  ${colors.dim("·")}  ${colors.green(`+${totals.add}`)}  ${colors.red(`−${totals.del}`)}`,
     "",
     ...fileLines,
     "",
-    `  ${pc.dim("proposed")}`,
+    `  ${colors.dim("proposed")}`,
     "",
-    ...indent(formatted, pc),
+    ...indent(formatted, colors),
     "",
   ];
 
   if (message.breaking && message.breakingReason) {
     lines.push(
-      `  ${pc.yellow("breaking")}  ${pc.dim(message.breakingReason)}`,
+      `  ${colors.yellow("breaking")}  ${colors.dim(message.breakingReason)}`,
     );
     lines.push("");
   }
 
   if (hints.committed) {
-    lines.push(`  ${pc.green("committed")}`);
+    lines.push(`  ${colors.green("committed")}`);
     lines.push("");
   } else {
-    lines.push(`  ${pc.dim("next")}  vibe-commit --commit`);
+    lines.push(`  ${colors.dim("next")}  vibe-commit --commit`);
     lines.push("");
   }
 
@@ -63,7 +64,7 @@ export function renderProposal(
 
 function indent(
   formatted: string,
-  colors: typeof pc,
+  colors: ReturnType<typeof pc.createColors>,
 ): string[] {
   return formatted.split("\n").map((line, index) => {
     if (!line) return "";
@@ -72,10 +73,11 @@ function indent(
   });
 }
 
-export function renderError(message: string): string {
-  return `${pc.red("vibe-commit")}  ${message}`;
+export function renderError(message: string, noColor = false): string {
+  const colors = noColor ? pc.createColors(false) : pc;
+  return `${colors.red("vibe-commit")}  ${message}`;
 }
 
-export function renderVersion(version: string): string {
+export function renderVersion(version: string, noColor = false): string {
   return `vibe-commit ${version}`;
 }

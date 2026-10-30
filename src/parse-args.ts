@@ -33,6 +33,7 @@ Options · 参数
   --vibe <style>      playful | pro | terse          (default: pro)
   --locale <locale>   en | zh                        (default: en)
   --no-ai             Skip AI even if OPENAI_API_KEY is set
+  --no-color          Disable ANSI colors in human-readable output
   --breaking          Force ! + BREAKING CHANGE footer (text = subject)
   --json              Print a machine-readable proposal (propose) or result (init/install/uninstall)
                       机器可读提案（propose）或结果（init/install/uninstall）
@@ -53,6 +54,7 @@ Env
   OPENAI_API_KEY      Optional. When set, draft with an OpenAI-compatible API
   OPENAI_MODEL        Default: gpt-4o-mini
   OPENAI_BASE_URL     Default: https://api.openai.com/v1
+  NO_COLOR            When set (any non-empty value), disable ANSI colors
   VIBE / VIBE_COMMIT_VIBE     Default vibe when --vibe is omitted
   VIBE_COMMIT_LOCALE          Default locale when --locale is omitted
   VIBE_COMMIT_HOOK_AI Set to 1 to allow AI inside the git hook (off by default)
@@ -130,6 +132,7 @@ export function parseArgs(
     github: false,
     quiet: false,
     maxAnnotations: 20,
+    noColor: Boolean(env.NO_COLOR),
     help: false,
     version: false,
     breaking: false,
@@ -167,6 +170,10 @@ export function parseArgs(
     }
     if (arg === "--no-ai") {
       options.noAi = true;
+      continue;
+    }
+    if (arg === "--no-color") {
+      options.noColor = true;
       continue;
     }
     if (arg === "--json") {
