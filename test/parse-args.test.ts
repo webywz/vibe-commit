@@ -240,3 +240,32 @@ describe("parseArgs github / quiet / max-annotations", () => {
     assert.match(help, /GITHUB_STEP_SUMMARY/);
   });
 });
+
+describe("parseArgs --out", () => {
+  it("parses --out flag", () => {
+    assert.equal(parseArgs(["--out", "report.txt"], {}).out, "report.txt");
+    assert.equal(parseArgs(["--out=/tmp/output.json"], {}).out, "/tmp/output.json");
+  });
+
+  it("rejects --out without value", () => {
+    assert.throws(() => parseArgs(["--out"], {}), UsageError);
+    assert.throws(() => parseArgs(["--out="], {}), UsageError);
+  });
+
+  it("rejects --out with non-propose commands", () => {
+    assert.throws(() => parseArgs(["init", "--out", "file.txt"], {}), UsageError);
+    assert.throws(() => parseArgs(["install", "--out", "file.txt"], {}), UsageError);
+    assert.throws(() => parseArgs(["uninstall", "--out", "file.txt"], {}), UsageError);
+  });
+
+  it("allows --out with default propose command", () => {
+    const options = parseArgs(["--out", "report.txt", "--no-ai"], {});
+    assert.equal(options.command, "propose");
+    assert.equal(options.out, "report.txt");
+  });
+
+  it("documents --out in help", () => {
+    const help = helpText();
+    assert.match(help, /--out/);
+  });
+});

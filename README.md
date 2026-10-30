@@ -46,6 +46,8 @@ vibe-commit --vibe playful --commit # write the commit
 vibe-commit --breaking --dry-run    # force ! + BREAKING CHANGE footer
 vibe-commit --dry-run               # print only (default; wins over --commit)
 vibe-commit --github --quiet --no-ai  # Actions annotations (CI)
+vibe-commit --out report.txt        # write report to file
+vibe-commit --json --out data.json  # write JSON to file (stdout also prints)
 git commit -m "$(vibe-commit --dry-run)"
 vibe-commit init                    # auto-detect hook manager and install
 vibe-commit init --force            # force overwrite existing hook/config
@@ -66,6 +68,7 @@ vibe-commit install                 # install bare .git/hooks (legacy)
 | `--github` | Emit GitHub Actions `::notice` / `::warning` / `::error` annotations; write `GITHUB_OUTPUT` + `GITHUB_STEP_SUMMARY` when set · 输出 Actions 注解，并在环境变量存在时写 Job 输出与 Summary |
 | `--quiet` | Suppress the pretty terminal report; `--json` / `--github` still emit · 抑制漂亮终端报告 |
 | `--max-annotations <n>` | Cap `--github` annotation lines (default: 20; invalid → UsageError) · 限制注解条数 |
+| `--out <file>` | Write report (or JSON body with `--json`) to file (propose only) · 写报告（或搭配 `--json` 写 JSON）到文件（仅 propose） |
 | `init [--path] [--force] [--json]` | Auto-detect hook manager and install (husky → simple-git-hooks → bare .git/hooks) · 自动检测钩子管理器并安装 |
 | `install [--path] [--json]` | Install the prepare-commit-msg hook (bare .git/hooks) · 安装钩子（直接写 .git/hooks） |
 | `uninstall [--path] [--json]` | Remove the managed hook · 卸载钩子 |

@@ -336,4 +336,38 @@ describe("cli e2e", () => {
     assert.match(result.stdout, /ok.*prepare-commit-msg hook removed/);
   });
 
+  it("--out writes text report to file", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const outFile = join(cwd, "report.txt");
+    const result = run(cwd, ["--no-ai", "--out", outFile]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, "", "stdout should be empty when --out is used");
+    const content = readFileSync(outFile, "utf8");
+    assert.match(content, /vibe-commit/);
+    assert.match(content, /feat\(auth\): add login/);
+  });
+
+  it("--out --json writes JSON to file and stdout", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const outFile = join(cwd, "report.json");
+    const result = run(cwd, ["--no-ai", "--json", "--out", outFile]);
+    assert.equal(result.status, 0, result.stderr);
+    const stdoutPayload = JSON.parse(result.stdout) as { formatted: string };
+    assert.match(stdoutPayload.formatted, /feat\(auth\):/);
+    const fileContent = readFileSync(outFile, "utf8");
+    const filePayload = JSON.parse(fileContent) as { formatted: string };
+    assert.deepEqual(filePayload, stdoutPayload, "file and stdout should contain identical JSON");
+  });
+
+  it("--out with invalid path fails gracefully", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const outFile = join(cwd, "nonexistent", "dir", "report.txt");
+    const result = run(cwd, ["--no-ai", "--out", outFile]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /failed to write --out/);
+  });
+
 });

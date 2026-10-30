@@ -99,4 +99,6 @@ export interface CliOptions {
   messageFile?: string;
   /** Git prepare-commit-msg source (message|template|merge|squash|commit). */
   commitSource?: string;
+  /** Output file path for --out (write report or JSON). */
+  out?: string;
 }
