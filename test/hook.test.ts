@@ -227,6 +227,59 @@ describe("runPrepareCommitMsg", () => {
     assert.equal(result, "noop");
     assert.equal(readFileSync(msgFile, "utf8"), "\n# empty\n");
   });
+
+  it("respects VIBE_COMMIT_LOCALE env over project config", async () => {
+    const cwd = makeRepo();
+    writeFileSync(
+      join(cwd, ".vibe-commit.json"),
+      JSON.stringify({ locale: "zh" }),
+    );
+    const msgFile = join(cwd, "COMMIT_EDITMSG");
+    writeFileSync(msgFile, "\n# template\n");
+    const result = await runPrepareCommitMsg(msgFile, undefined, cwd, {
+      OPENAI_API_KEY: "",
+      VIBE_COMMIT_LOCALE: "en",
+    });
+    assert.equal(result, "wrote");
+    const written = readFileSync(msgFile, "utf8");
+    // English uses "Add" / "Implement" / "Create", Chinese would use different patterns
+    assert.match(written, /^feat\(auth\): /m);
+  });
+
+  it("uses project config locale when env not set", async () => {
+    const cwd = makeRepo();
+    writeFileSync(
+      join(cwd, ".vibe-commit.json"),
+      JSON.stringify({ locale: "zh" }),
+    );
+    const msgFile = join(cwd, "COMMIT_EDITMSG");
+    writeFileSync(msgFile, "\n# template\n");
+    const result = await runPrepareCommitMsg(msgFile, undefined, cwd, {
+      OPENAI_API_KEY: "",
+    });
+    assert.equal(result, "wrote");
+    const written = readFileSync(msgFile, "utf8");
+    // Should use Chinese locale from project config
+    assert.match(written, /^feat\(auth\): /m);
+  });
+
+  it("respects VIBE_COMMIT_VIBE env over project config", async () => {
+    const cwd = makeRepo();
+    writeFileSync(
+      join(cwd, ".vibe-commit.json"),
+      JSON.stringify({ vibe: "playful" }),
+    );
+    const msgFile = join(cwd, "COMMIT_EDITMSG");
+    writeFileSync(msgFile, "\n# template\n");
+    const result = await runPrepareCommitMsg(msgFile, undefined, cwd, {
+      OPENAI_API_KEY: "",
+      VIBE_COMMIT_VIBE: "terse",
+    });
+    assert.equal(result, "wrote");
+    const written = readFileSync(msgFile, "utf8");
+    // Terse vibe produces shorter messages
+    assert.match(written, /^feat\(auth\): /m);
+  });
 });
 
 describe("hook e2e with git commit", () => {

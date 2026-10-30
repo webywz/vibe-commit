@@ -8,7 +8,7 @@ import {
   type Locale,
   type Vibe,
 } from "./types.ts";
-import { loadProjectConfig } from "./config.ts";
+import { resolveLocale, resolveVibe } from "./config.ts";
 
 const HELP = `vibe-commit — stylish conventional commits, offline-first
 有品味的 Conventional Commits（离线优先）
@@ -101,17 +101,12 @@ export function parseArgs(
   env: NodeJS.ProcessEnv = process.env,
   cwd = process.cwd(),
 ): CliOptions {
-  const projectConfig = loadProjectConfig(cwd);
   const options: CliOptions = {
     command: "propose",
     commit: false,
     dryRun: false,
-    vibe: (env.VIBE_COMMIT_VIBE || env.VIBE)
-      ? defaultVibeFromEnv(env)
-      : (projectConfig?.vibe ?? defaultVibeFromEnv(env)),
-    locale: env.VIBE_COMMIT_LOCALE
-      ? defaultLocaleFromEnv(env)
-      : (projectConfig?.locale ?? defaultLocaleFromEnv(env)),
+    vibe: resolveVibe(env, cwd),
+    locale: resolveLocale(env, cwd),
     noAi: false,
     json: false,
     github: false,

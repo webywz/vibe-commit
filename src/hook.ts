@@ -12,9 +12,8 @@ import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { formatCommit } from "./format.ts";
 import { assertRepo, GitError, inspectStaged } from "./git.ts";
-import { defaultLocaleFromEnv, defaultVibeFromEnv } from "./parse-args.ts";
 import { proposeMessage } from "./propose.ts";
-import { loadProjectConfig } from "./config.ts";
+import { resolveLocale, resolveVibe } from "./config.ts";
 
 export const HOOK_BEGIN = "# BEGIN VIBE-COMMIT";
 export const HOOK_END = "# END VIBE-COMMIT";
@@ -63,12 +62,11 @@ export async function runPrepareCommitMsg(
     const diff = inspectStaged(cwd);
     // Avoid hanging `git commit` on network — hooks stay offline unless opted in.
     const useAi = env.VIBE_COMMIT_HOOK_AI === "1";
-    const projectConfig = loadProjectConfig(cwd);
     const message = await proposeMessage(
       diff,
       {
-        vibe: projectConfig?.vibe ?? defaultVibeFromEnv(env),
-        locale: projectConfig?.locale ?? defaultLocaleFromEnv(env),
+        vibe: resolveVibe(env, cwd),
+        locale: resolveLocale(env, cwd),
         preferAi: useAi,
       },
       env,

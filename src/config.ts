@@ -61,3 +61,45 @@ function normalizeConfig(raw: Record<string, unknown>): ProjectConfig {
 
   return config;
 }
+
+/**
+ * Resolve locale with precedence: env (VIBE_COMMIT_LOCALE) > project config > default (en).
+ * Use this for contexts where CLI flags are not available (e.g., git hooks).
+ */
+export function resolveLocale(
+  env: NodeJS.ProcessEnv = process.env,
+  cwd = process.cwd(),
+): Locale {
+  const envValue = env.VIBE_COMMIT_LOCALE?.trim().toLowerCase();
+  if (envValue && (LOCALES as readonly string[]).includes(envValue)) {
+    return envValue as Locale;
+  }
+
+  const projectConfig = loadProjectConfig(cwd);
+  if (projectConfig?.locale) {
+    return projectConfig.locale;
+  }
+
+  return "en";
+}
+
+/**
+ * Resolve vibe with precedence: env (VIBE_COMMIT_VIBE or VIBE) > project config > default (pro).
+ * Use this for contexts where CLI flags are not available (e.g., git hooks).
+ */
+export function resolveVibe(
+  env: NodeJS.ProcessEnv = process.env,
+  cwd = process.cwd(),
+): Vibe {
+  const envValue = (env.VIBE_COMMIT_VIBE ?? env.VIBE)?.trim().toLowerCase();
+  if (envValue && (VIBES as readonly string[]).includes(envValue)) {
+    return envValue as Vibe;
+  }
+
+  const projectConfig = loadProjectConfig(cwd);
+  if (projectConfig?.vibe) {
+    return projectConfig.vibe;
+  }
+
+  return "pro";
+}
