@@ -63,6 +63,7 @@ vibe-commit install                 # install bare .git/hooks (legacy)
 | `--vibe <style>` | `playful` \| `pro` \| `terse` (default: `pro`) |
 | `--locale <locale>` | `en` \| `zh` (default: `en`) · 提交信息主题语言 |
 | `--no-ai` | Skip the API even if `OPENAI_API_KEY` is set · 即使有 Key 也不走 AI |
+| `--no-color` | Disable ANSI colors in human-readable output (also via `NO_COLOR` env) · 禁用人类可读输出的 ANSI 颜色（也可通过 `NO_COLOR` 环境变量） |
 | `--breaking` | Force breaking (`!` + `BREAKING CHANGE:` footer = **subject**) · 强制破坏性变更（`!` + footer 文本即 **subject**） |
 | `--json` | Machine-readable proposal (propose) or result (init/install/uninstall) · 机器可读提案（propose）或结果（init/install/uninstall） |
 | `--github` | Emit GitHub Actions `::notice` / `::warning` / `::error` annotations; write `GITHUB_OUTPUT` + `GITHUB_STEP_SUMMARY` when set · 输出 Actions 注解，并在环境变量存在时写 Job 输出与 Summary |
@@ -261,11 +262,16 @@ export OPENAI_MODEL=gpt-4o-mini          # optional
 export OPENAI_BASE_URL=https://api.openai.com/v1
 export VIBE_COMMIT_VIBE=pro              # or VIBE
 export VIBE_COMMIT_LOCALE=zh             # or en (default)
+export NO_COLOR=1                        # disable ANSI colors (any non-empty value)
 ```
 
 OpenAI-compatible Chat Completions. Missing key, timeout, or 4xx/5xx → silent fallback to the offline heuristic. See [`.env.example`](.env.example). Unstaged files are never sent; huge diffs are truncated.
 
 兼容 OpenAI Chat Completions。没 Key、超时或 4xx/5xx → 静默回退离线启发式。可参考 `.env.example`。不会上传未暂存文件；过大 diff 会截断。
+
+Set `NO_COLOR` (any non-empty value) or use `--no-color` to disable ANSI colors in human-readable output. `--json` output is always plain JSON.
+
+设置 `NO_COLOR`（任意非空值）或使用 `--no-color` 禁用人类可读输出的 ANSI 颜色。`--json` 输出始终为纯 JSON。
 
 ### Library · 库
 

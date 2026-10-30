@@ -37,6 +37,7 @@ describe("parseArgs", () => {
     assert.equal(options.github, false);
     assert.equal(options.quiet, false);
     assert.equal(options.maxAnnotations, 20);
+    assert.equal(options.noColor, false);
   });
 
   it("parses long flags and equals syntax", () => {
@@ -267,5 +268,27 @@ describe("parseArgs --out", () => {
   it("documents --out in help", () => {
     const help = helpText();
     assert.match(help, /--out/);
+  });
+});
+
+describe("parseArgs --no-color", () => {
+  it("parses --no-color flag", () => {
+    assert.equal(parseArgs(["--no-color"], {}).noColor, true);
+  });
+
+  it("respects NO_COLOR env var", () => {
+    assert.equal(parseArgs([], { NO_COLOR: "1" }).noColor, true);
+    assert.equal(parseArgs([], { NO_COLOR: "true" }).noColor, true);
+    assert.equal(parseArgs([], { NO_COLOR: "" }).noColor, false);
+  });
+
+  it("--no-color flag wins over NO_COLOR env var", () => {
+    assert.equal(parseArgs(["--no-color"], { NO_COLOR: "" }).noColor, true);
+  });
+
+  it("documents --no-color in help", () => {
+    const help = helpText();
+    assert.match(help, /--no-color/);
+    assert.match(help, /NO_COLOR/);
   });
 });

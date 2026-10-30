@@ -87,6 +87,8 @@ export interface CliOptions {
   quiet: boolean;
   /** Soft cap for --github annotation lines (default 20). */
   maxAnnotations: number;
+  /** Disable ANSI colors in human-readable output. */
+  noColor: boolean;
   help: boolean;
   version: boolean;
   /** Force breaking change marker and footer. */
