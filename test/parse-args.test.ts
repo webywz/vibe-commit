@@ -271,6 +271,57 @@ describe("parseArgs --out", () => {
   });
 });
 
+describe("parseArgs --html", () => {
+  it("parses --html without path as stdout", () => {
+    const options = parseArgs(["--html"], {});
+    assert.equal(options.html, true);
+  });
+
+  it("parses --html path and equals forms", () => {
+    assert.equal(parseArgs(["--html", "report.html"], {}).html, "report.html");
+    assert.equal(parseArgs(["--html=/tmp/out.html"], {}).html, "/tmp/out.html");
+    assert.equal(parseArgs(["--html="], {}).html, true);
+  });
+
+  it("rejects --html together with --json", () => {
+    assert.throws(
+      () => parseArgs(["--html", "--json"], {}),
+      (error: unknown) =>
+        error instanceof UsageError &&
+        /cannot be combined with --json/.test(error.message),
+    );
+    assert.throws(
+      () => parseArgs(["--json", "--html", "out.html"], {}),
+      UsageError,
+    );
+  });
+
+  it("rejects --html with non-propose commands", () => {
+    assert.throws(() => parseArgs(["init", "--html"], {}), UsageError);
+    assert.throws(() => parseArgs(["install", "--html", "x.html"], {}), UsageError);
+    assert.throws(() => parseArgs(["uninstall", "--html"], {}), UsageError);
+  });
+
+  it("allows --html with default propose command", () => {
+    const options = parseArgs(["--html", "report.html", "--no-ai"], {});
+    assert.equal(options.command, "propose");
+    assert.equal(options.html, "report.html");
+  });
+
+  it("does not consume the next flag as an html path", () => {
+    const options = parseArgs(["--html", "--quiet"], {});
+    assert.equal(options.html, true);
+    assert.equal(options.quiet, true);
+  });
+
+  it("documents --html in help", () => {
+    const help = helpText();
+    assert.match(help, /--html \[path\]/);
+    assert.match(help, /Self-contained HTML report/);
+    assert.match(help, /--html and --json cannot share stdout/);
+  });
+});
+
 describe("parseArgs --no-color", () => {
   it("parses --no-color flag", () => {
     assert.equal(parseArgs(["--no-color"], {}).noColor, true);

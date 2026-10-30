@@ -103,4 +103,6 @@ export interface CliOptions {
   commitSource?: string;
   /** Output file path for --out (write report or JSON). */
   out?: string;
+  /** `true` = HTML on stdout; string = write that path. */
+  html?: string | true;
 }

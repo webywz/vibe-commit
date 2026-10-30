@@ -46,6 +46,8 @@ vibe-commit --vibe playful --commit # write the commit
 vibe-commit --breaking --dry-run    # force ! + BREAKING CHANGE footer
 vibe-commit --dry-run               # print only (default; wins over --commit)
 vibe-commit --github --quiet --no-ai  # Actions annotations (CI)
+vibe-commit --html                  # self-contained HTML report on stdout
+vibe-commit --html report.html      # write HTML to file (creates parent dirs)
 vibe-commit --out report.txt        # write report to file
 vibe-commit --json --out data.json  # write JSON to file (stdout also prints)
 git commit -m "$(vibe-commit --dry-run)"
@@ -66,6 +68,7 @@ vibe-commit install                 # install bare .git/hooks (legacy)
 | `--no-color` | Disable ANSI colors in human-readable output (also via `NO_COLOR` env) · 禁用人类可读输出的 ANSI 颜色（也可通过 `NO_COLOR` 环境变量） |
 | `--breaking` | Force breaking (`!` + `BREAKING CHANGE:` footer = **subject**) · 强制破坏性变更（`!` + footer 文本即 **subject**） |
 | `--json` | Machine-readable proposal (propose) or result (init/install/uninstall) · 机器可读提案（propose）或结果（init/install/uninstall） |
+| `--html [path]` | Self-contained HTML report (stdout, or write to path; offline, no CDN). Cannot share stdout with `--json` · 自包含 HTML 报告（stdout 或写入路径；离线、无 CDN）。不能与 `--json` 同时占用 stdout |
 | `--github` | Emit GitHub Actions `::notice` / `::warning` / `::error` annotations; write `GITHUB_OUTPUT` + `GITHUB_STEP_SUMMARY` when set · 输出 Actions 注解，并在环境变量存在时写 Job 输出与 Summary |
 | `--quiet` | Suppress the pretty terminal report; `--json` / `--github` still emit · 抑制漂亮终端报告 |
 | `--max-annotations <n>` | Cap `--github` annotation lines (default: 20; invalid → UsageError) · 限制注解条数 |
@@ -305,6 +308,8 @@ console.log(formatCommit(message));
    通过 `install` / `uninstall` 管理 `prepare-commit-msg` 钩子。
 6. **GitHub Actions** mode: `--github` emits Checks annotations; optional `--quiet` / `--max-annotations`; writes job outputs + step summary when `GITHUB_OUTPUT` / `GITHUB_STEP_SUMMARY` are set. See [`examples/github-actions.yml`](./examples/github-actions.yml).
    **GitHub Actions** 模式：`--github` 输出 Checks 注解；可选 `--quiet` / `--max-annotations`；环境变量存在时写 Job 输出与 Summary。示例见 [`examples/github-actions.yml`](./examples/github-actions.yml)。
+7. **HTML report**: `--html [path]` writes a self-contained offline page (proposed message, vibe/heuristic signals, file summary, confidence / tips). No CDN, no external CSS/JS/fonts. Omit path → stdout; give a path → write the file (parent dirs created). Mutually exclusive with `--json`. Combined with `--github` on stdout, annotations go to stderr so the HTML stays parseable.
+   **HTML 报告**：`--html [path]` 写出离线自包含页面（提案、vibe/启发式信号、文件摘要、把握 / 提示）。无 CDN、无外部 CSS/JS/字体。省略路径 → stdout；给出路径 → 写文件（自动创建父目录）。与 `--json` 互斥。与 `--github` 联用且 HTML 走 stdout 时，注解改走 stderr，保持 HTML 可解析。
 
 ---
 
