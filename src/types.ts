@@ -53,6 +53,8 @@ export interface ProposeOptions {
   scope?: string;
   vibe: Vibe;
   preferAi?: boolean;
+  /** Force a breaking change (ORs with heuristic / AI inference). */
+  breaking?: boolean;
 }
 
 export type CliCommand =
@@ -70,6 +72,8 @@ export interface CliOptions {
   vibe: Vibe;
   noAi: boolean;
   json: boolean;
+  /** Force breaking: true (ORs with inference). */
+  breaking: boolean;
   help: boolean;
   version: boolean;
   /** Target repo for install/uninstall (default: cwd). */

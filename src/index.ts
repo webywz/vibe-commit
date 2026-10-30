@@ -6,6 +6,8 @@ export {
   inferType,
   inferScope,
   inferSubject,
+  inferBreaking,
+  ensureBreakingFooter,
   classifyPath,
 } from "./heuristic.ts";
 export { parseArgs, helpText, UsageError } from "./parse-args.ts";

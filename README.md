@@ -42,6 +42,7 @@ git add -p
 vibe-commit                         # propose from staged diff
 vibe-commit --vibe playful --commit # write the commit
 vibe-commit --dry-run               # print only (default; wins over --commit)
+vibe-commit --breaking              # force ! + BREAKING CHANGE footer
 git commit -m "$(vibe-commit --dry-run)"
 vibe-commit install                 # optional prepare-commit-msg hook
 ```
@@ -55,6 +56,7 @@ vibe-commit install                 # optional prepare-commit-msg hook
 | `--vibe <style>` | `playful` \| `pro` \| `terse` (default: `pro`) |
 | `--no-ai` | Skip the API even if `OPENAI_API_KEY` is set · 即使有 Key 也不走 AI |
 | `--json` | Machine-readable proposal · 机器可读提案 |
+| `--breaking` | Force a breaking change (`!` + `BREAKING CHANGE` footer) · 强制破坏性变更（`!` + footer） |
 | `install [--path]` | Install the prepare-commit-msg hook · 安装钩子 |
 | `uninstall [--path]` | Remove the managed hook · 卸载钩子 |
 | `-h` / `-v` | Help / version · 帮助 / 版本 |
@@ -122,6 +124,11 @@ import { proposeHeuristic, formatCommit } from "@webywz/vibe-commit";
 const message = proposeHeuristic({ diff, vibe: "pro" });
 console.log(formatCommit(message));
 // feat(auth): add login
+
+// Breaking changes get a bang and a footer:
+// feat(api)!: remove legacy login
+//
+// BREAKING CHANGE: remove public export legacyLogin
 ```
 
 ---
@@ -138,6 +145,8 @@ console.log(formatCommit(message));
    - lockfiles / `package.json` → `chore`
    - `fix` / `bug` / `crash` in the diff → `fix`
    - new files / `export function` → `feat`
+   - `+ BREAKING CHANGE:` / deleted `export` / `package.json` major bump → breaking (`!` + footer)
+     上述信号 → 破坏性变更（`!` + `BREAKING CHANGE` footer）；也可用 `--breaking` 强制。
 3. Optional AI draft with automatic heuristic fallback.
    可选 AI 草稿，失败自动回退启发式。
 4. Managed `prepare-commit-msg` hook via `install` / `uninstall`.

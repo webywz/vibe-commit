@@ -26,6 +26,7 @@ Options
   --vibe <style>      playful | pro | terse          (default: pro)
   --no-ai             Skip AI even if OPENAI_API_KEY is set
   --json              Print a machine-readable proposal
+  --breaking          Force a breaking change (! + BREAKING CHANGE footer)
   --path <repo>       Repo root for install/uninstall (default: cwd)
   -h, --help          Show help
   -v, --version       Show version
@@ -46,6 +47,7 @@ Examples
   git add -p
   vibe-commit
   vibe-commit --vibe playful --commit
+  vibe-commit --breaking --json
   git commit -m "$(vibe-commit --dry-run)"
   vibe-commit install
   vibe-commit uninstall --path ~/projects/app
@@ -69,6 +71,7 @@ export function parseArgs(
     vibe: defaultVibeFromEnv(env),
     noAi: false,
     json: false,
+    breaking: false,
     help: false,
     version: false,
   };
@@ -108,6 +111,10 @@ export function parseArgs(
     }
     if (arg === "--json") {
       options.json = true;
+      continue;
+    }
+    if (arg === "--breaking") {
+      options.breaking = true;
       continue;
     }
     if (arg === "--type" || arg.startsWith("--type=")) {

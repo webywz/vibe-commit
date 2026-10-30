@@ -49,6 +49,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       scope: options.scope,
       vibe: options.vibe,
       preferAi: !options.noAi,
+      breaking: options.breaking,
     });
     const formatted = formatCommit(message);
     const shouldCommit = options.commit && !options.dryRun;

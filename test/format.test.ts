@@ -39,6 +39,19 @@ describe("formatCommit", () => {
     );
   });
 
+  it("keeps breaking bang with a BREAKING CHANGE body footer", () => {
+    assert.equal(
+      formatCommit(
+        msg({
+          scope: "api",
+          breaking: true,
+          body: "BREAKING CHANGE: remove public export login",
+        }),
+      ),
+      "feat(api)!: add login\n\nBREAKING CHANGE: remove public export login",
+    );
+  });
+
   it("appends a body after a blank line", () => {
     assert.equal(
       formatCommit(msg({ body: "Keep tokens rotating." })),

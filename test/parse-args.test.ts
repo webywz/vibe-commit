@@ -27,6 +27,7 @@ describe("parseArgs", () => {
         "playful",
         "--no-ai",
         "--json",
+        "--breaking",
       ],
       {},
     );
@@ -39,6 +40,7 @@ describe("parseArgs", () => {
         vibe: options.vibe,
         noAi: options.noAi,
         json: options.json,
+        breaking: options.breaking,
       },
       {
         commit: true,
@@ -48,8 +50,13 @@ describe("parseArgs", () => {
         vibe: "playful",
         noAi: true,
         json: true,
+        breaking: true,
       },
     );
+  });
+
+  it("defaults breaking to false", () => {
+    assert.equal(parseArgs([], {}).breaking, false);
   });
 
   it("reads vibe from env when flag is omitted", () => {

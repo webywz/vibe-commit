@@ -97,6 +97,23 @@ describe("cli e2e", () => {
     assert.match(payload.formatted, /^fix\(api\): /);
   });
 
+
+  it("forces breaking with --breaking and exposes footer in --json", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const result = run(cwd, ["--no-ai", "--breaking", "--json"]);
+    assert.equal(result.status, 0, result.stderr);
+    const payload = JSON.parse(result.stdout) as {
+      breaking: boolean;
+      body?: string;
+      formatted: string;
+    };
+    assert.equal(payload.breaking, true);
+    assert.match(payload.body ?? "", /BREAKING CHANGE:/);
+    assert.match(payload.formatted, /!/);
+    assert.match(payload.formatted, /BREAKING CHANGE:/);
+  });
+
   it("commits with --commit and skips commit on --dry-run", () => {
     const cwd = makeRepo();
     repos.push(cwd);
