@@ -17,8 +17,10 @@
 </p>
 
 Companion spirit to [diff-vibe](https://github.com/webywz/diff-vibe): commits here, pull requests there.
+Pair walkthrough (EN/中文) and a copy-pasteable helper: [`examples/pair-workflow.md`](./examples/pair-workflow.md) · [`examples/commit-msg.sh`](./examples/commit-msg.sh) (ship in the npm tarball).
 
 与 [diff-vibe](https://github.com/webywz/diff-vibe) 成对：这边写 commit，那边写 PR。
+成对流程与可复制脚本见 [`examples/`](./examples/)（随 npm 包发布）。
 
 ---
 
@@ -64,6 +66,18 @@ vibe-commit install                 # optional prepare-commit-msg hook
 Offline heuristic also marks breaking when the staged diff removes public `export`s or bumps a `package.json` major version, and always attaches a `BREAKING CHANGE:` footer when `breaking` is true (so `--json` body matches the formatted message). Forced `--breaking` puts the **subject** in the footer; heuristic breaking still prefers a more specific bilingual reason when one is available. Dry-run prints a one-line cause; `--json` may include `breakingReason`.
 
 离线启发式在删掉公开 `export`、或 `package.json` 主版本升级时也会标 breaking；只要 `breaking` 为真就会补上 `BREAKING CHANGE:` footer（`--json` 的 body 与格式化输出一致）。强制 `--breaking` 时 footer 文本即 **subject**；启发式推断 breaking 时仍可用更具体的双语原因。干跑会打一行原因；`--json` 可带 `breakingReason`。
+
+### Pair with diff-vibe · 与 diff-vibe 成对
+
+```bash
+git add -p
+npx --yes @webywz/vibe-commit --commit
+npx --yes @webywz/diff-vibe@^0.1.8 --base main --create
+```
+
+Commits here · PRs there. Full walkthrough (EN/中文) and `commit-msg.sh` live in [`examples/pair-workflow.md`](./examples/pair-workflow.md) and [`examples/commit-msg.sh`](./examples/commit-msg.sh). Companion-side snippets: [diff-vibe examples](https://github.com/webywz/diff-vibe/tree/main/examples).
+
+这边写 commit，那边写 PR。完整成对流程与脚本见 [`examples/`](./examples/)。成对仓库示例：[diff-vibe examples](https://github.com/webywz/diff-vibe/tree/main/examples)。
 
 **Vibes** · 语气
 
@@ -158,6 +172,7 @@ console.log(formatCommit(message));
 - npm · [`@webywz/vibe-commit`](https://www.npmjs.com/package/@webywz/vibe-commit)
 - Source · [github.com/webywz/vibe-commit](https://github.com/webywz/vibe-commit)
 - Related · [diff-vibe](https://github.com/webywz/diff-vibe) · [prompt-diff](https://github.com/webywz/prompt-diff)
+- Pair workflow · [examples/pair-workflow.md](./examples/pair-workflow.md)
 - License · [MIT](./LICENSE)
 
 ```bash
