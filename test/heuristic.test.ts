@@ -264,7 +264,10 @@ describe("proposeHeuristic", () => {
       proposal.breakingReason,
       formatBreakingReason("export-removed"),
     );
-    assert.match(proposal.body ?? "", /BREAKING CHANGE: remove public export legacyLogin/);
+    assert.match(
+      proposal.body ?? "",
+      /BREAKING CHANGE: remove public export legacyLogin · 删除公开 export legacyLogin/,
+    );
     assert.match(formatCommit(proposal), /!/);
   });
 
@@ -284,7 +287,10 @@ describe("proposeHeuristic", () => {
     });
     assert.equal(major.breaking, true);
     assert.equal(major.breakingReason, formatBreakingReason("major-bump"));
-    assert.match(major.body ?? "", /BREAKING CHANGE: bump major version to 1\.0\.0/);
+    assert.match(
+      major.body ?? "",
+      /BREAKING CHANGE: bump major version to 1\.0\.0 · 主版本升至 1\.0\.0/,
+    );
 
     const patch = proposeHeuristic({
       diff: stagedDiff(
@@ -300,6 +306,37 @@ describe("proposeHeuristic", () => {
       vibe: "pro",
     });
     assert.equal(patch.breaking, false);
+  });
+
+  it("marks breaking on minified single-line package.json major bump", () => {
+    const mini = '{"name":"demo","version":"0.9.0","private":true}';
+    const majored = '{"name":"demo","version":"1.0.0","private":true}';
+    const proposal = proposeHeuristic({
+      diff: stagedDiff(
+        [stagedFile({ path: "package.json" })],
+        [mixedHunk("package.json", mini, majored)],
+      ),
+      vibe: "pro",
+    });
+    assert.equal(proposal.breaking, true);
+    assert.equal(proposal.breakingReason, formatBreakingReason("major-bump"));
+    assert.match(
+      proposal.body ?? "",
+      /BREAKING CHANGE: bump major version to 1\.0\.0 · 主版本升至 1\.0\.0/,
+    );
+  });
+
+  it("does not mark breaking on minified single-line package.json minor bump", () => {
+    const mini = '{"name":"demo","version":"1.0.0","private":true}';
+    const minored = '{"name":"demo","version":"1.1.0","private":true}';
+    const proposal = proposeHeuristic({
+      diff: stagedDiff(
+        [stagedFile({ path: "package.json" })],
+        [mixedHunk("package.json", mini, minored)],
+      ),
+      vibe: "pro",
+    });
+    assert.equal(proposal.breaking, false);
   });
 
   it("honors breaking override and keeps footer in terse vibe", () => {
