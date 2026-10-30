@@ -1,5 +1,9 @@
 import { proposeWithAi } from "./ai.ts";
-import { proposeHeuristic } from "./heuristic.ts";
+import {
+  breakingReason,
+  ensureBreakingFooter,
+  proposeHeuristic,
+} from "./heuristic.ts";
 import type { ProposeOptions, ProposedMessage, StagedDiff } from "./types.ts";
 
 export async function proposeMessage(
@@ -12,16 +16,14 @@ export async function proposeMessage(
     type: options.type,
     scope: options.scope,
     vibe: options.vibe,
+    breaking: options.breaking,
   });
 
-  let message: ProposedMessage;
-  if (options.preferAi === false) {
-    message = heuristic;
-  } else {
+  let message: ProposedMessage = heuristic;
+
+  if (options.preferAi !== false) {
     const hasKey = Boolean(env.OPENAI_API_KEY?.trim());
-    if (!hasKey) {
-      message = heuristic;
-    } else {
+    if (hasKey) {
       const ai = await proposeWithAi(
         {
           diff,
@@ -31,12 +33,14 @@ export async function proposeMessage(
         },
         env,
       );
-      message = ai ?? heuristic;
+      if (ai) message = ai;
     }
   }
 
-  if (options.breaking) {
-    return { ...message, breaking: true };
-  }
-  return message;
+  const breaking =
+    Boolean(options.breaking) || heuristic.breaking || message.breaking;
+  return ensureBreakingFooter(
+    { ...message, breaking },
+    breakingReason(diff),
+  );
 }
