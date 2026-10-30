@@ -57,6 +57,7 @@ vibe-commit install                 # optional prepare-commit-msg hook
 | `--type <type>` | Force `feat` / `fix` / `docs` / `style` / `refactor` / `perf` / `test` / `build` / `ci` / `chore` |
 | `--scope <scope>` | Override inferred scope · 覆盖推断出的 scope |
 | `--vibe <style>` | `playful` \| `pro` \| `terse` (default: `pro`) |
+| `--locale <locale>` | `en` \| `zh` (default: `en`) · 提交信息主题语言 |
 | `--no-ai` | Skip the API even if `OPENAI_API_KEY` is set · 即使有 Key 也不走 AI |
 | `--breaking` | Force breaking (`!` + `BREAKING CHANGE:` footer = **subject**) · 强制破坏性变更（`!` + footer 文本即 **subject**） |
 | `--json` | Machine-readable proposal · 机器可读提案 |
@@ -125,6 +126,45 @@ Hook stays **offline by default** (`VIBE_COMMIT_HOOK_AI=1` to allow AI). Unique 
 
 钩子默认离线；设 `VIBE_COMMIT_HOOK_AI=1` 才允许 AI。用标记块保证干净卸载。已有外来钩子会备份并链式调用。
 
+### Locale support · 语言支持
+
+vibe-commit supports English (`en`, default) and Chinese (`zh`) commit subjects:
+
+vibe-commit 支持英文（`en`，默认）和中文（`zh`）提交信息主题：
+
+```bash
+vibe-commit --locale zh --dry-run        # Chinese subject: 添加/修复/更新...
+vibe-commit --locale en --dry-run        # English subject: add/fix/update...
+```
+
+**Configuration precedence** · 配置优先级：
+1. CLI flag `--locale`
+2. Environment variable `VIBE_COMMIT_LOCALE`
+3. Project config (`.vibe-commit.json` or `package.json#vibeCommit`)
+4. Default `en`
+
+```json
+// .vibe-commit.json
+{
+  "locale": "zh",
+  "vibe": "pro"
+}
+```
+
+```json
+// package.json
+{
+  "vibeCommit": {
+    "locale": "zh",
+    "vibe": "terse"
+  }
+}
+```
+
+Both heuristic and AI engines respect the locale setting. The `--json` output includes a `locale` field.
+
+启发式引擎和 AI 引擎都会遵循 locale 设置。`--json` 输出包含 `locale` 字段。
+
 ### AI (optional) · AI（可选）
 
 ```bash
@@ -132,6 +172,7 @@ export OPENAI_API_KEY=sk-...
 export OPENAI_MODEL=gpt-4o-mini          # optional
 export OPENAI_BASE_URL=https://api.openai.com/v1
 export VIBE_COMMIT_VIBE=pro              # or VIBE
+export VIBE_COMMIT_LOCALE=zh             # or en (default)
 ```
 
 OpenAI-compatible Chat Completions. Missing key, timeout, or 4xx/5xx → silent fallback to the offline heuristic. See [`.env.example`](.env.example). Unstaged files are never sent; huge diffs are truncated.

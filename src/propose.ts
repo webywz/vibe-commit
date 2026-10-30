@@ -18,6 +18,7 @@ export async function proposeMessage(
     type: options.type,
     scope: options.scope,
     vibe: options.vibe,
+    locale: options.locale,
     breaking: options.breaking,
   });
 
@@ -30,6 +31,7 @@ export async function proposeMessage(
         {
           diff,
           vibe: options.vibe,
+          locale: options.locale,
           type: options.type,
           scope: options.scope,
         },

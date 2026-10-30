@@ -1,11 +1,14 @@
 import {
   COMMIT_TYPES,
+  LOCALES,
   VIBES,
   type CliCommand,
   type CliOptions,
   type CommitType,
+  type Locale,
   type Vibe,
 } from "./types.ts";
+import { loadProjectConfig } from "./config.ts";
 
 const HELP = `vibe-commit — stylish conventional commits, offline-first
 有品味的 Conventional Commits（离线优先）
@@ -25,6 +28,7 @@ Options · 参数
   --type <type>       feat | fix | docs | style | refactor | perf | test | build | ci | chore
   --scope <scope>     Override inferred scope
   --vibe <style>      playful | pro | terse          (default: pro)
+  --locale <locale>   en | zh                        (default: en)
   --no-ai             Skip AI even if OPENAI_API_KEY is set
   --breaking          Force ! + BREAKING CHANGE footer (text = subject)
   --json              Print a machine-readable proposal
@@ -41,7 +45,8 @@ Env
   OPENAI_API_KEY      Optional. When set, draft with an OpenAI-compatible API
   OPENAI_MODEL        Default: gpt-4o-mini
   OPENAI_BASE_URL     Default: https://api.openai.com/v1
-  VIBE / VIBE_COMMIT_VIBE   Default vibe when --vibe is omitted
+  VIBE / VIBE_COMMIT_VIBE     Default vibe when --vibe is omitted
+  VIBE_COMMIT_LOCALE          Default locale when --locale is omitted
   VIBE_COMMIT_HOOK_AI Set to 1 to allow AI inside the git hook (off by default)
 
 With --github, annotations go to stdout (or stderr when combined with --json) so
@@ -59,10 +64,16 @@ Git hook
   comment-only message file with a vibe-commit proposal. Skips merge, squash,
   amend (source=commit), and any message that already has non-comment text.
 
+Project config
+  .vibe-commit.json or package.json#vibeCommit
+    { "locale": "zh", "vibe": "pro" }
+  Precedence: CLI > env > project config > default
+
 Examples · 示例
   git add -p
   vibe-commit
   vibe-commit --vibe playful --commit
+  vibe-commit --locale zh --dry-run
   vibe-commit --breaking --dry-run
   vibe-commit --github --quiet --no-ai
   vibe-commit --github --json --max-annotations 10
@@ -78,15 +89,25 @@ export function defaultVibeFromEnv(
   return (VIBES as readonly string[]).includes(raw) ? (raw as Vibe) : "pro";
 }
 
+export function defaultLocaleFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): Locale {
+  const raw = (env.VIBE_COMMIT_LOCALE ?? "en").trim().toLowerCase();
+  return (LOCALES as readonly string[]).includes(raw) ? (raw as Locale) : "en";
+}
+
 export function parseArgs(
   argv: string[],
   env: NodeJS.ProcessEnv = process.env,
+  cwd = process.cwd(),
 ): CliOptions {
+  const projectConfig = loadProjectConfig(cwd);
   const options: CliOptions = {
     command: "propose",
     commit: false,
     dryRun: false,
-    vibe: defaultVibeFromEnv(env),
+    vibe: projectConfig?.vibe ?? defaultVibeFromEnv(env),
+    locale: projectConfig?.locale ?? defaultLocaleFromEnv(env),
     noAi: false,
     json: false,
     github: false,
@@ -167,6 +188,11 @@ export function parseArgs(
     if (arg === "--vibe" || arg.startsWith("--vibe=")) {
       const value = arg.includes("=") ? arg.slice("--vibe=".length) : argv[++i];
       options.vibe = parseVibe(value);
+      continue;
+    }
+    if (arg === "--locale" || arg.startsWith("--locale=")) {
+      const value = arg.includes("=") ? arg.slice("--locale=".length) : argv[++i];
+      options.locale = parseLocale(value);
       continue;
     }
     if (arg === "--path" || arg.startsWith("--path=")) {
@@ -250,6 +276,15 @@ export function parseVibe(value: string | undefined): Vibe {
     throw new UsageError(`Invalid --vibe "${value}". Use: ${VIBES.join(", ")}`);
   }
   return raw as Vibe;
+}
+
+export function parseLocale(value: string | undefined): Locale {
+  const raw = value?.trim().toLowerCase();
+  if (!raw) throw new UsageError("Missing value for --locale");
+  if (!(LOCALES as readonly string[]).includes(raw)) {
+    throw new UsageError(`Invalid --locale "${value}". Use: ${LOCALES.join(", ")}`);
+  }
+  return raw as Locale;
 }
 
 export function sanitizeScope(value: string): string {

@@ -1,5 +1,5 @@
 import { parseCommit } from "./format.ts";
-import type { ProposedMessage, StagedDiff, Vibe } from "./types.ts";
+import type { Locale, ProposedMessage, StagedDiff, Vibe } from "./types.ts";
 import type { CommitType } from "./types.ts";
 
 const MAX_DIFF_CHARS = 12_000;
@@ -7,6 +7,7 @@ const MAX_DIFF_CHARS = 12_000;
 export interface AiContext {
   diff: StagedDiff;
   vibe: Vibe;
+  locale: Locale;
   type?: CommitType;
   scope?: string;
 }
@@ -35,7 +36,7 @@ export async function proposeWithAi(
         model,
         temperature: context.vibe === "playful" ? 0.7 : 0.2,
         messages: [
-          { role: "system", content: systemPrompt(context.vibe) },
+          { role: "system", content: systemPrompt(context.vibe, context.locale) },
           { role: "user", content: userPrompt(context) },
         ],
       }),
@@ -50,25 +51,33 @@ export async function proposeWithAi(
     if (!parsed) return null;
     if (context.type) parsed.type = context.type;
     if (context.scope) parsed.scope = context.scope;
+    parsed.locale = context.locale;
     return parsed;
   } catch {
     return null;
   }
 }
 
-function systemPrompt(vibe: Vibe): string {
+function systemPrompt(vibe: Vibe, locale: Locale): string {
   const vibeLine =
     vibe === "playful"
       ? "Tone: witty, still professional; no memes, no emoji, no slang that would embarrass a code review."
       : vibe === "terse"
         ? "Tone: as short as possible. Headline only, no body."
         : "Tone: clear, professional, imperative mood.";
+  
+  const langLine =
+    locale === "zh"
+      ? "Subject language: Chinese (中文). Use Chinese verbs like 添加/修复/更新/重构/优化/删除/格式化 etc."
+      : "Subject language: English.";
+  
   return `You write conventional commit messages.
 Return only the commit message, no quotes, no markdown fences.
 Format: type(scope): subject
 Optional body after a blank line.
 Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
 Subject: lowercase, imperative, no trailing period, <= 72 chars.
+${langLine}
 ${vibeLine}`;
 }
 

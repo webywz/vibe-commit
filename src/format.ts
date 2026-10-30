@@ -72,6 +72,7 @@ export function parseCommit(
     body: rest || undefined,
     breaking,
     engine,
+    locale: "en",
   };
 }
 

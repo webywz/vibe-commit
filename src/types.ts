@@ -1,6 +1,9 @@
 export const VIBES = ["playful", "pro", "terse"] as const;
 export type Vibe = (typeof VIBES)[number];
 
+export const LOCALES = ["en", "zh"] as const;
+export type Locale = (typeof LOCALES)[number];
+
 export const COMMIT_TYPES = [
   "feat",
   "fix",
@@ -48,12 +51,14 @@ export interface ProposedMessage {
   /** Short cause when breaking (export removed / major bump / --breaking / footer). */
   breakingReason?: string;
   engine: Engine;
+  locale: Locale;
 }
 
 export interface ProposeOptions {
   type?: CommitType;
   scope?: string;
   vibe: Vibe;
+  locale: Locale;
   preferAi?: boolean;
   /** Force a breaking change (! + BREAKING CHANGE footer). */
   breaking?: boolean;
@@ -72,6 +77,7 @@ export interface CliOptions {
   type?: CommitType;
   scope?: string;
   vibe: Vibe;
+  locale: Locale;
   noAi: boolean;
   json: boolean;
   /** Emit GitHub Actions annotations / job outputs / step summary. */

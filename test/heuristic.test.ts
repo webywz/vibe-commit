@@ -158,14 +158,14 @@ describe("inferSubject", () => {
       [stagedFile({ path: "src/auth.ts", status: statuses.add })],
       [addedLines("src/auth.ts", "export function refreshToken() {}")],
     );
-    assert.equal(inferSubject(diff, "feat", "auth"), "add refresh token");
+    assert.equal(inferSubject(diff, "feat", "auth", "en"), "add refresh token");
   });
 
   it("describes a single added file", () => {
     const diff = stagedDiff([
       stagedFile({ path: "src/heuristic.ts", status: statuses.add, deletions: 0 }),
     ]);
-    assert.equal(inferSubject(diff, "feat"), "add heuristic");
+    assert.equal(inferSubject(diff, "feat", undefined, "en"), "add heuristic");
   });
 
   it("describes a rename", () => {
@@ -177,14 +177,47 @@ describe("inferSubject", () => {
       }),
     ]);
     assert.equal(
-      inferSubject(diff, "refactor"),
+      inferSubject(diff, "refactor", undefined, "en"),
       "rename args to parse args",
     );
   });
 
   it("uses update readme for documentation", () => {
     const diff = stagedDiff([stagedFile({ path: "README.md" })]);
-    assert.equal(inferSubject(diff, "docs"), "update readme");
+    assert.equal(inferSubject(diff, "docs", undefined, "en"), "update readme");
+  });
+
+  it("uses Chinese verbs when locale is zh", () => {
+    const diff = stagedDiff([
+      stagedFile({ path: "src/parser.ts", status: statuses.add, additions: 30, deletions: 0 }),
+    ]);
+    assert.equal(inferSubject(diff, "feat", undefined, "zh"), "添加 parser");
+  });
+
+  it("uses Chinese verbs for fix type", () => {
+    const diff = stagedDiff([
+      stagedFile({ path: "src/auth.ts" }),
+    ]);
+    assert.equal(inferSubject(diff, "fix", "auth", "zh"), "修复 auth");
+  });
+
+  it("uses Chinese for rename", () => {
+    const diff = stagedDiff([
+      stagedFile({
+        path: "src/parse-args.ts",
+        fromPath: "src/args.ts",
+        status: statuses.rename,
+      }),
+    ]);
+    assert.equal(
+      inferSubject(diff, "refactor", undefined, "zh"),
+      "重命名 args 为 parse args",
+    );
+  });
+
+  it("uses Chinese for docs", () => {
+    const diff = stagedDiff([stagedFile({ path: "README.md" })]);
+    assert.equal(inferSubject(diff, "docs", undefined, "zh"), "更新 readme");
   });
 });
 
@@ -198,6 +231,7 @@ describe("proposeHeuristic", () => {
         stagedFile({ path: "README.md", status: statuses.add, deletions: 0 }),
       ]),
       vibe: "pro",
+      locale: "en",
     });
     assert.equal(proposal.type, "feat");
     assert.equal(proposal.subject, "add initial implementation");
@@ -217,11 +251,33 @@ describe("proposeHeuristic", () => {
         [addedLines("src/auth/login.ts", "export function login() {}")],
       ),
       vibe: "pro",
+      locale: "en",
     });
     const formatted = formatCommit(proposal);
     assert.match(formatted, /^feat\(auth\): /);
     assert.equal(proposal.engine, "heuristic");
     assert.equal(proposal.body, undefined);
+  });
+
+  it("generates Chinese commit message when locale is zh", () => {
+    const proposal = proposeHeuristic({
+      diff: stagedDiff(
+        [
+          stagedFile({
+            path: "src/auth/login.ts",
+            status: statuses.add,
+            additions: 40,
+            deletions: 0,
+          }),
+        ],
+        [addedLines("src/auth/login.ts", "export function login() {}")],
+      ),
+      vibe: "pro",
+      locale: "zh",
+    });
+    assert.equal(proposal.type, "feat");
+    assert.equal(proposal.locale, "zh");
+    assert.match(proposal.subject, /^添加/);
   });
 
   it("marks breaking from an added conventional footer", () => {
@@ -236,6 +292,7 @@ describe("proposeHeuristic", () => {
         ],
       ),
       vibe: "pro",
+      locale: "en",
     });
     assert.equal(noisy.breaking, false);
 
@@ -245,6 +302,7 @@ describe("proposeHeuristic", () => {
         [addedLines("CHANGELOG.md", "BREAKING CHANGE: drop Node 16")],
       ),
       vibe: "pro",
+      locale: "en",
     });
     assert.equal(footer.breaking, true);
     assert.match(footer.body ?? "", /BREAKING CHANGE: drop Node 16/);
@@ -259,6 +317,7 @@ describe("proposeHeuristic", () => {
         [deletedLines("src/api.ts", "export function legacyLogin() {}")],
       ),
       vibe: "pro",
+      locale: "en",
     });
     assert.equal(proposal.breaking, true);
     assert.equal(
@@ -285,6 +344,7 @@ describe("proposeHeuristic", () => {
         ],
       ),
       vibe: "pro",
+      locale: "en",
     });
     assert.equal(major.breaking, true);
     assert.equal(major.breakingReason, formatBreakingReason("major-bump"));
@@ -305,6 +365,7 @@ describe("proposeHeuristic", () => {
         ],
       ),
       vibe: "pro",
+      locale: "en",
     });
     assert.equal(patch.breaking, false);
   });
@@ -318,6 +379,7 @@ describe("proposeHeuristic", () => {
         [mixedHunk("package.json", mini, majored)],
       ),
       vibe: "pro",
+      locale: "en",
     });
     assert.equal(proposal.breaking, true);
     assert.equal(proposal.breakingReason, formatBreakingReason("major-bump"));
@@ -336,6 +398,7 @@ describe("proposeHeuristic", () => {
         [mixedHunk("package.json", mini, minored)],
       ),
       vibe: "pro",
+      locale: "en",
     });
     assert.equal(proposal.breaking, false);
   });
@@ -344,6 +407,7 @@ describe("proposeHeuristic", () => {
     const proposal = proposeHeuristic({
       diff: stagedDiff([stagedFile({ path: "src/auth.ts" })]),
       vibe: "terse",
+      locale: "en",
       breaking: true,
     });
     assert.equal(proposal.breaking, true);
@@ -360,6 +424,7 @@ describe("proposeHeuristic", () => {
       type: "chore",
       scope: "release",
       vibe: "pro",
+      locale: "en",
     });
     assert.equal(formatCommit(proposal), "chore(release): update readme");
   });
@@ -372,6 +437,7 @@ describe("proposeHeuristic", () => {
         stagedFile({ path: "src/c.ts" }),
       ]),
       vibe: "pro",
+      locale: "en",
     });
     assert.match(proposal.body ?? "", /Changed files:|Touches:/);
   });
@@ -384,6 +450,7 @@ describe("proposeHeuristic", () => {
         stagedFile({ path: "src/c.ts" }),
       ]),
       vibe: "terse",
+      locale: "en",
     });
     assert.equal(proposal.body, undefined);
   });
@@ -450,6 +517,7 @@ describe("ensureBreakingFooter", () => {
       subject: "add x",
       breaking: false,
       engine: "heuristic" as const,
+      locale: "en" as const,
     };
     assert.equal(ensureBreakingFooter(message), message);
   });
@@ -461,6 +529,7 @@ describe("ensureBreakingFooter", () => {
       body: "BREAKING CHANGE: already here",
       breaking: true,
       engine: "heuristic" as const,
+      locale: "en" as const,
     };
     assert.equal(ensureBreakingFooter(message).body, message.body);
   });
@@ -471,6 +540,7 @@ describe("ensureBreakingFooter", () => {
       subject: "drop legacy auth",
       breaking: true,
       engine: "heuristic" as const,
+      locale: "en" as const,
     };
     const out = ensureBreakingFooter(message, message.subject);
     assert.equal(out.body, "BREAKING CHANGE: drop legacy auth");
@@ -483,6 +553,7 @@ describe("ensureBreakingFooter", () => {
       subject: "drop legacy auth",
       breaking: true,
       engine: "heuristic" as const,
+      locale: "en" as const,
     };
     assert.equal(
       ensureBreakingFooter(message).body,
@@ -500,6 +571,7 @@ describe("ensureBreakingFooter", () => {
       subject: "drop legacy auth",
       breaking: true,
       engine: "heuristic" as const,
+      locale: "en" as const,
     };
     const detail =
       "remove public export legacyLogin · 删除公开 export legacyLogin";
@@ -515,6 +587,7 @@ describe("ensureBreakingFooter", () => {
       subject: "   ",
       breaking: true,
       engine: "heuristic" as const,
+      locale: "en" as const,
     };
     assert.equal(
       ensureBreakingFooter(message).body,
