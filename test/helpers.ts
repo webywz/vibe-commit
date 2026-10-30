@@ -32,6 +32,22 @@ export function addedLines(path: string, source: string): DiffHunk {
   return hunk(path, lines);
 }
 
+export function deletedLines(path: string, source: string): DiffHunk {
+  const lines = source.split("\n").map((line) => `-${line}`);
+  return hunk(path, lines);
+}
+
+export function mixedHunk(
+  path: string,
+  deleted: string,
+  added: string,
+): DiffHunk {
+  const del =
+    deleted === "" ? [] : deleted.split("\n").map((line) => `-${line}`);
+  const add = added === "" ? [] : added.split("\n").map((line) => `+${line}`);
+  return hunk(path, [...del, ...add]);
+}
+
 export const statuses = {
   add: "A" as FileStatus,
   modify: "M" as FileStatus,

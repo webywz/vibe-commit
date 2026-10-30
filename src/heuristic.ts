@@ -44,6 +44,8 @@ export interface HeuristicInput {
   type?: CommitType;
   scope?: string;
   vibe: Vibe;
+  /** Force breaking: true (ORs with inferBreaking). */
+  breaking?: boolean;
 }
 
 export function proposeHeuristic(input: HeuristicInput): ProposedMessage {
@@ -52,9 +54,10 @@ export function proposeHeuristic(input: HeuristicInput): ProposedMessage {
   const scope = input.scope ?? inferScope(diff.files);
   const subject = inferSubject(diff, type, scope);
   const body = inferBody(diff, type);
-  const breaking = inferBreaking(diff);
+  const breaking = Boolean(input.breaking) || inferBreaking(diff);
   const styled = applyVibe({ type, scope, subject, body, breaking }, vibe);
-  return { ...styled, engine: "heuristic" };
+  const message: ProposedMessage = { ...styled, engine: "heuristic" };
+  return ensureBreakingFooter(message, breakingReason(diff));
 }
 
 export function inferType(diff: StagedDiff): CommitType {
@@ -271,11 +274,144 @@ function inferBody(diff: StagedDiff, type: CommitType): string | undefined {
   return `${lead}\n${listed}${extra}`;
 }
 
-function inferBreaking(diff: StagedDiff): boolean {
-  return diff.hunks.some((hunk) =>
-    hunk.lines.some((line) => /^\+\s*BREAKING CHANGE:/i.test(line)),
-  );
+export function inferBreaking(diff: StagedDiff): boolean {
+  return Boolean(breakingReason(diff));
 }
+
+/** Short reason for a BREAKING CHANGE footer, or undefined when not breaking. */
+export function breakingReason(diff: StagedDiff): string | undefined {
+  const footer = detectBreakingFooter(diff);
+  if (footer) return footer;
+
+  const removed = detectRemovedExports(diff);
+  if (removed.length > 0) {
+    const names = removed.slice(0, 3).join(", ");
+    return removed.length === 1
+      ? `remove public export ${names}`
+      : `remove public exports ${names}`;
+  }
+
+  const bump = detectMajorVersionBump(diff);
+  if (bump) return `bump major version to ${bump.to}`;
+
+  return undefined;
+}
+
+/**
+ * Ensure body carries a conventional BREAKING CHANGE footer when breaking.
+ * Skips if the body already mentions one. Uses subject as a last-resort reason.
+ */
+export function ensureBreakingFooter(
+  message: ProposedMessage,
+  reason?: string,
+): ProposedMessage {
+  if (!message.breaking) return message;
+  const body = message.body?.trim() ?? "";
+  if (/BREAKING CHANGE:/i.test(body)) {
+    return body === (message.body ?? "") ? message : { ...message, body };
+  }
+  const detail = (reason ?? message.subject).replace(/\s+/g, " ").trim() ||
+    "incompatible API change";
+  const footer = `BREAKING CHANGE: ${detail}`;
+  return {
+    ...message,
+    body: body ? `${body}\n\n${footer}` : footer,
+  };
+}
+
+function detectBreakingFooter(diff: StagedDiff): string | undefined {
+  for (const hunk of diff.hunks) {
+    for (const line of hunk.lines) {
+      const match = line.match(/^\+\s*BREAKING CHANGE:\s*(.+)$/i);
+      if (match?.[1]) return match[1].trim();
+    }
+  }
+  // Presence of the token alone still counts as breaking.
+  if (
+    diff.hunks.some((hunk) =>
+      hunk.lines.some((line) => /^\+\s*BREAKING CHANGE:/i.test(line)),
+    )
+  ) {
+    return "incompatible API change";
+  }
+  return undefined;
+}
+
+const DELETED_EXPORT_RE =
+  /^-\s*export(?:\s+default\b|\s*\{|\s+)/;
+
+function detectRemovedExports(diff: StagedDiff): string[] {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const hunk of diff.hunks) {
+    for (const line of hunk.lines) {
+      if (line.startsWith("---")) continue;
+      if (!DELETED_EXPORT_RE.test(line)) continue;
+      const name = exportNameFromDeletedLine(line);
+      const key = name ?? line.slice(1).trim();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (name) names.push(name);
+      else names.push("export");
+    }
+  }
+  return names;
+}
+
+function exportNameFromDeletedLine(line: string): string | undefined {
+  const content = line.slice(1);
+  const named = content.match(
+    /export\s+(?:default\s+)?(?:async\s+)?(?:function|const|let|class|type|interface|enum)\s+([A-Za-z_][\w]*)/,
+  );
+  if (named?.[1]) return named[1];
+  const braced = content.match(/export\s*\{\s*([^}]+)\s*\}/);
+  if (braced?.[1]) {
+    const first = braced[1].split(",")[0]?.trim().split(/\s+as\s+/i)[0]?.trim();
+    if (first && /^[A-Za-z_][\w]*$/.test(first)) return first;
+  }
+  const def = content.match(/export\s+default\s+([A-Za-z_][\w]*)/);
+  if (def?.[1]) return def[1];
+  return undefined;
+}
+
+interface VersionPair {
+  from: string;
+  to: string;
+}
+
+function detectMajorVersionBump(diff: StagedDiff): VersionPair | undefined {
+  for (const hunk of diff.hunks) {
+    if (!/(^|\/)package\.json$/i.test(hunk.path)) continue;
+    const removed: string[] = [];
+    const added: string[] = [];
+    for (const line of hunk.lines) {
+      const rem = line.match(/^-\s*"version"\s*:\s*"([^"]+)"/);
+      const add = line.match(/^\+\s*"version"\s*:\s*"([^"]+)"/);
+      if (rem?.[1]) removed.push(rem[1]);
+      if (add?.[1]) added.push(add[1]);
+    }
+    for (const from of removed) {
+      for (const to of added) {
+        if (isMajorBump(from, to)) return { from, to };
+      }
+    }
+  }
+  return undefined;
+}
+
+function isMajorBump(from: string, to: string): boolean {
+  const a = parseSemverMajor(from);
+  const b = parseSemverMajor(to);
+  if (a === undefined || b === undefined) return false;
+  return b > a;
+}
+
+function parseSemverMajor(version: string): number | undefined {
+  const match = version.trim().match(/^v?(\d+)\./);
+  if (!match) return undefined;
+  return Number(match[1]);
+}
+
 
 export function collectAddedIdentifiers(hunks: DiffHunk[]): string[] {
   const names: string[] = [];

@@ -56,6 +56,11 @@ vibe-commit install                 # optional prepare-commit-msg hook
 | `--vibe <style>` | `playful` \| `pro` \| `terse` (default: `pro`) |
 | `--no-ai` | Skip the API even if `OPENAI_API_KEY` is set · 即使有 Key 也不走 AI |
 | `--breaking` | Force breaking change (`!` + `BREAKING CHANGE:` footer) · 强制破坏性变更（`!` + footer） |
+
+Offline heuristic also marks breaking when the staged diff removes public `export`s or bumps a `package.json` major version, and always attaches a `BREAKING CHANGE:` footer when `breaking` is true (so `--json` body matches the formatted message).
+
+离线启发式在删掉公开 `export`、或 `package.json` 主版本升级时也会标 breaking；只要 `breaking` 为真就会补上 `BREAKING CHANGE:` footer（`--json` 的 body 与格式化输出一致）。
+
 | `--json` | Machine-readable proposal · 机器可读提案 |
 | `install [--path]` | Install the prepare-commit-msg hook · 安装钩子 |
 | `uninstall [--path]` | Remove the managed hook · 卸载钩子 |

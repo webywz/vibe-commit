@@ -2,13 +2,22 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { formatCommit } from "../src/format.ts";
 import {
+  ensureBreakingFooter,
+  inferBreaking,
   inferScope,
   inferSubject,
   inferType,
   proposeHeuristic,
   stem,
 } from "../src/heuristic.ts";
-import { addedLines, stagedDiff, stagedFile, statuses } from "./helpers.ts";
+import {
+  addedLines,
+  deletedLines,
+  mixedHunk,
+  stagedDiff,
+  stagedFile,
+  statuses,
+} from "./helpers.ts";
 
 describe("inferType", () => {
   it("classifies documentation-only changes as docs", () => {
@@ -212,7 +221,7 @@ describe("proposeHeuristic", () => {
     assert.equal(proposal.body, undefined);
   });
 
-  it("marks breaking only from an added conventional footer", () => {
+  it("marks breaking from an added conventional footer", () => {
     const noisy = proposeHeuristic({
       diff: stagedDiff(
         [stagedFile({ path: "src/format.ts" })],
@@ -235,6 +244,66 @@ describe("proposeHeuristic", () => {
       vibe: "pro",
     });
     assert.equal(footer.breaking, true);
+    assert.match(footer.body ?? "", /BREAKING CHANGE: drop Node 16/);
+    assert.match(formatCommit(footer), /^docs!?:|^docs\(/);
+    assert.match(formatCommit(footer), /!/);
+  });
+
+  it("marks breaking when a public export is deleted", () => {
+    const proposal = proposeHeuristic({
+      diff: stagedDiff(
+        [stagedFile({ path: "src/api.ts", deletions: 4, additions: 0 })],
+        [deletedLines("src/api.ts", "export function legacyLogin() {}")],
+      ),
+      vibe: "pro",
+    });
+    assert.equal(proposal.breaking, true);
+    assert.match(proposal.body ?? "", /BREAKING CHANGE: remove public export legacyLogin/);
+    assert.match(formatCommit(proposal), /!/);
+  });
+
+  it("marks breaking on package.json major version bump", () => {
+    const major = proposeHeuristic({
+      diff: stagedDiff(
+        [stagedFile({ path: "package.json" })],
+        [
+          mixedHunk(
+            "package.json",
+            '  "version": "0.9.0",',
+            '  "version": "1.0.0",',
+          ),
+        ],
+      ),
+      vibe: "pro",
+    });
+    assert.equal(major.breaking, true);
+    assert.match(major.body ?? "", /BREAKING CHANGE: bump major version to 1\.0\.0/);
+
+    const patch = proposeHeuristic({
+      diff: stagedDiff(
+        [stagedFile({ path: "package.json" })],
+        [
+          mixedHunk(
+            "package.json",
+            '  "version": "1.0.0",',
+            '  "version": "1.0.1",',
+          ),
+        ],
+      ),
+      vibe: "pro",
+    });
+    assert.equal(patch.breaking, false);
+  });
+
+  it("honors breaking override and keeps footer in terse vibe", () => {
+    const proposal = proposeHeuristic({
+      diff: stagedDiff([stagedFile({ path: "src/auth.ts" })]),
+      vibe: "terse",
+      breaking: true,
+    });
+    assert.equal(proposal.breaking, true);
+    assert.match(proposal.body ?? "", /^BREAKING CHANGE:/);
+    assert.match(formatCommit(proposal), /!/);
   });
 
   it("honors type and scope overrides", () => {
@@ -269,6 +338,65 @@ describe("proposeHeuristic", () => {
       vibe: "terse",
     });
     assert.equal(proposal.body, undefined);
+  });
+});
+
+
+describe("inferBreaking", () => {
+  it("detects deleted export { } and export default", () => {
+    assert.equal(
+      inferBreaking(
+        stagedDiff(
+          [stagedFile({ path: "src/index.ts" })],
+          [deletedLines("src/index.ts", "export { helper }")],
+        ),
+      ),
+      true,
+    );
+    assert.equal(
+      inferBreaking(
+        stagedDiff(
+          [stagedFile({ path: "src/main.ts" })],
+          [deletedLines("src/main.ts", "export default App")],
+        ),
+      ),
+      true,
+    );
+  });
+
+  it("ignores non-export deletions", () => {
+    assert.equal(
+      inferBreaking(
+        stagedDiff(
+          [stagedFile({ path: "src/util.ts" })],
+          [deletedLines("src/util.ts", "function helper() {}")],
+        ),
+      ),
+      false,
+    );
+  });
+});
+
+describe("ensureBreakingFooter", () => {
+  it("is a no-op when not breaking", () => {
+    const message = {
+      type: "feat" as const,
+      subject: "add x",
+      breaking: false,
+      engine: "heuristic" as const,
+    };
+    assert.equal(ensureBreakingFooter(message), message);
+  });
+
+  it("does not duplicate an existing footer", () => {
+    const message = {
+      type: "feat" as const,
+      subject: "add x",
+      body: "BREAKING CHANGE: already here",
+      breaking: true,
+      engine: "heuristic" as const,
+    };
+    assert.equal(ensureBreakingFooter(message).body, message.body);
   });
 });
 
