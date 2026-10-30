@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import pc from "picocolors";
@@ -10,6 +10,7 @@ import {
   appendGitHubStepSummary,
   formatGitHubAnnotations,
 } from "./github.ts";
+import { formatHtml } from "./html.ts";
 import {
   initHook,
   installHook,
@@ -68,13 +69,19 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     });
     const formatted = formatCommit(message);
     const shouldCommit = options.commit && !options.dryRun;
+    const htmlOnStdout = options.html === true;
+    const htmlPath = typeof options.html === "string" ? options.html : undefined;
+    const html =
+      options.html !== undefined
+        ? formatHtml(diff, message, { vibe: options.vibe })
+        : undefined;
 
     if (options.github) {
       const ann = formatGitHubAnnotations(message, diff, {
         maxAnnotations: options.maxAnnotations,
       });
-      // Keep --json stdout machine-parseable; annotations ride on stderr.
-      if (options.json) process.stderr.write(ann);
+      // Keep --json / --html stdout parseable; annotations ride on stderr.
+      if (options.json || htmlOnStdout) process.stderr.write(ann);
       else process.stdout.write(ann);
       try {
         appendGitHubJobOutput(message, diff);
@@ -92,17 +99,27 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       }
     }
 
+    const writeOut = (content: string): boolean => {
+      if (!options.out) return true;
+      try {
+        writeFileSync(options.out, content, "utf8");
+        return true;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`vibe-commit: failed to write --out ${options.out}: ${msg}\n`);
+        return false;
+      }
+    };
+
     if (options.json) {
       const jsonOutput = `${JSON.stringify({ ...message, formatted }, null, 2)}\n`;
       process.stdout.write(jsonOutput);
-      if (options.out) {
-        try {
-          writeFileSync(options.out, jsonOutput, "utf8");
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          process.stderr.write(`vibe-commit: failed to write --out ${options.out}: ${msg}\n`);
-          return 1;
-        }
+      if (!writeOut(jsonOutput)) return 1;
+    } else if (htmlOnStdout && html !== undefined) {
+      process.stdout.write(html.endsWith("\n") ? html : `${html}\n`);
+      if (options.out && !options.quiet) {
+        const report = renderProposal(diff, message, { noColor: options.noColor });
+        if (!writeOut(report)) return 1;
       }
     } else if (!options.quiet) {
       let report: string;
@@ -111,31 +128,44 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       } else {
         report = renderProposal(diff, message, { noColor: options.noColor });
       }
-      
-      if (options.github) {
-        process.stdout.write("::group::vibe-commit report\n");
-      }
-      
+
       if (options.out) {
-        try {
-          writeFileSync(options.out, report, "utf8");
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          process.stderr.write(`vibe-commit: failed to write --out ${options.out}: ${msg}\n`);
-          return 1;
+        if (options.github && !htmlPath) {
+          process.stdout.write("::group::vibe-commit report\n");
         }
-      } else {
+        if (!writeOut(report)) return 1;
+        if (options.github && !htmlPath) {
+          process.stdout.write("::endgroup::\n");
+        }
+      } else if (!htmlPath) {
+        if (options.github) {
+          process.stdout.write("::group::vibe-commit report\n");
+        }
         process.stdout.write(report);
+        if (options.github) {
+          process.stdout.write("::endgroup::\n");
+        }
       }
-      
-      if (options.github) {
-        process.stdout.write("::endgroup::\n");
+    }
+
+    if (htmlPath && html !== undefined) {
+      try {
+        mkdirSync(dirname(htmlPath), { recursive: true });
+        const payload = html.endsWith("\n") ? html : `${html}\n`;
+        writeFileSync(htmlPath, payload, "utf8");
+        if (!options.quiet) {
+          process.stderr.write(`wrote html report to ${htmlPath}\n`);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`vibe-commit: failed to write ${htmlPath}: ${msg}\n`);
+        return 1;
       }
     }
 
     if (shouldCommit) {
       commitWithMessage(formatted);
-      if (!piped && !options.json && !options.quiet) {
+      if (!piped && !options.json && !htmlOnStdout && !options.quiet) {
         const colors = options.noColor ? pc.createColors(false) : pc;
         process.stdout.write(`  ${colors.green("committed")}\n\n`);
       }

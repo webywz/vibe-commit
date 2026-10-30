@@ -37,6 +37,8 @@ Options · 参数
   --breaking          Force ! + BREAKING CHANGE footer (text = subject)
   --json              Print a machine-readable proposal (propose) or result (init/install/uninstall)
                       机器可读提案（propose）或结果（init/install/uninstall）
+  --html [path]       Self-contained HTML report (stdout, or write to path; offline, no CDN)
+                      自包含 HTML 报告（stdout，或写入路径；离线，无 CDN）
   --github            Emit GitHub Actions annotations (::notice/warning/error)
                       输出 Actions 注解；有 GITHUB_OUTPUT / GITHUB_STEP_SUMMARY 时写输出与 Job Summary
   --quiet             Suppress the pretty terminal report (--json / --github still emit)
@@ -59,15 +61,17 @@ Env
   VIBE_COMMIT_LOCALE          Default locale when --locale is omitted
   VIBE_COMMIT_HOOK_AI Set to 1 to allow AI inside the git hook (off by default)
 
-With --github, annotations go to stdout (or stderr when combined with --json) so
+With --github, annotations go to stdout (or stderr when combined with --json / --html) so
 PR Checks can surface the proposed commit title / body / staged files. Job outputs
 title/subject/type/scope/breaking/engine/findings are written when GITHUB_OUTPUT
 is set (findings = staged file count). A short Markdown job summary is appended when
 GITHUB_STEP_SUMMARY is set. --quiet hides the pretty report only.
+--html and --json cannot share stdout; pick one primary export.
 
-配合 --github 时注解走 stdout（与 --json 联用则走 stderr，保持 JSON 干净）。
+配合 --github 时注解走 stdout（与 --json / --html 联用则走 stderr，保持 JSON 干净）。
 有 GITHUB_OUTPUT 时写入 title/subject 等字段；有 GITHUB_STEP_SUMMARY 时追加 Job Summary。
 --quiet 只隐藏漂亮终端报告。
+--html 与 --json 不能同时占用 stdout；二选一。
 
 Git hook
   After \`vibe-commit init\` or \`vibe-commit install\`, plain \`git commit\` (no -m)
@@ -94,6 +98,8 @@ Examples · 示例
   vibe-commit --breaking --dry-run
   vibe-commit --github --quiet --no-ai
   vibe-commit --github --json --max-annotations 10
+  vibe-commit --html
+  vibe-commit --html report.html
   git commit -m "$(vibe-commit --dry-run)"
   vibe-commit init
   vibe-commit init --force
@@ -236,6 +242,21 @@ export function parseArgs(
       options.out = value;
       continue;
     }
+    if (arg === "--html") {
+      const next = argv[i + 1];
+      if (next && !next.startsWith("-")) {
+        options.html = next;
+        i += 1;
+      } else {
+        options.html = true;
+      }
+      continue;
+    }
+    if (arg.startsWith("--html=")) {
+      const inline = arg.slice("--html=".length);
+      options.html = inline === "" ? true : inline;
+      continue;
+    }
     if (arg.startsWith("-")) {
       throw new UsageError(`Unknown option: ${arg}`);
     }
@@ -276,6 +297,16 @@ export function parseArgs(
 
   if (options.out && options.command !== "propose") {
     throw new UsageError("--out is only valid with propose (default command)");
+  }
+
+  if (options.html && options.json) {
+    throw new UsageError(
+      "--html cannot be combined with --json (choose one primary export)",
+    );
+  }
+
+  if (options.html && options.command !== "propose") {
+    throw new UsageError("--html is only valid with propose (default command)");
   }
 
   return options;

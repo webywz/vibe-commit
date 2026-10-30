@@ -15,6 +15,8 @@ export {
   classifyPath,
 } from "./heuristic.ts";
 export type { BreakingKind } from "./heuristic.ts";
+export { escapeHtml, formatHtml } from "./html.ts";
+export type { HtmlFormatOptions } from "./html.ts";
 export { parseArgs, helpText, UsageError } from "./parse-args.ts";
 export {
   annotation,
