@@ -1,0 +1,49 @@
+# Example: surface a proposed commit message as Actions annotations + job summary.
+# Copy into your app repo as .github/workflows/vibe-commit.yml
+# (typically on pull_request so Checks show the draft commit).
+#
+# 示例：把拟写的 commit message 做成 Actions 注解 + Job Summary。
+# 复制到业务仓的 .github/workflows/vibe-commit.yml（通常挂在 pull_request 上）。
+#
+# Note: vibe-commit reads *staged* changes. Stage intentionally in CI, or
+# `git add -A` / `git add -u` before the step if you want the working tree.
+
+name: Vibe commit
+
+on:
+  pull_request:
+
+jobs:
+  vibe-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Stage working tree (demo)
+        run: git add -A
+
+      - name: Propose commit (annotations + summary)
+        id: vibe
+        run: |
+          npx --yes @webywz/vibe-commit@^0.1.14 \
+            --github \
+            --quiet \
+            --max-annotations 20 \
+            --no-ai
+        # --github           → ::notice / ::warning / ::error on the PR Checks UI
+        # --quiet            → suppress the pretty terminal report (annotations / summary / outputs still emit)
+        # --max-annotations  → soft-cap annotation noise (default 20)
+        # When GITHUB_OUTPUT is set, also writes: title, subject, type, scope, breaking, engine, findings
+        #   findings = staged file count
+        # When GITHUB_STEP_SUMMARY is set, appends a short Markdown job summary
+
+      # Optional: use job outputs from a later step
+      # - name: Echo title
+      #   run: echo "proposed ${{ steps.vibe.outputs.title }} (findings=${{ steps.vibe.outputs.findings }})"
+
+      # Optional: Job Summary is written automatically when GITHUB_STEP_SUMMARY is set
+      # (Actions injects it). No extra step required.
