@@ -68,6 +68,7 @@ npx @webywz/vibe-commit               # 一次性运行
 git add -p          # stage the work you actually want to commit
 vibe-commit         # inspect the staged diff, print a proposal
 vibe-commit --commit
+vibe-commit install # optional: fill empty messages on plain `git commit`
 ```
 
 | Flag | What it does · 作用 |
@@ -81,6 +82,8 @@ vibe-commit --commit
 | `--json` | Machine-readable proposal |
 | `-h`, `--help` | Help |
 | `-v`, `--version` | Version |
+| `install [--path]` | Install the prepare-commit-msg hook · 安装钩子 |
+| `uninstall [--path]` | Remove the managed hook · 卸载钩子 |
 
 ### Vibes
 
@@ -122,6 +125,44 @@ export VIBE_COMMIT_VIBE=pro
 Copy `.env.example` if you keep secrets in a file. vibe-commit never sends unstaged files, and it truncates huge diffs.
 
 兼容 OpenAI Chat Completions。没 Key、超时、4xx/5xx → 静默回退到离线启发式，CLI 仍然能给出一条能用的信息。
+
+---
+
+---
+
+## Git hook · 钩子
+
+Install a managed `prepare-commit-msg` hook so plain `git commit` (without `-m`) gets a vibe-commit proposal when the message file is empty or comment-only:
+
+```bash
+vibe-commit install
+# or:
+vibe-commit install --path ~/projects/app
+
+vibe-commit uninstall
+vibe-commit uninstall --path ~/projects/app
+```
+
+**What the hook does**
+
+- Runs on `prepare-commit-msg` and writes a conventional message into the commit message file.
+- Stays **offline by default** inside the hook (set `VIBE_COMMIT_HOOK_AI=1` to allow AI).
+- Uses unique markers (`# BEGIN VIBE-COMMIT` … `# END VIBE-COMMIT`) so uninstall is clean.
+- If a foreign `prepare-commit-msg` already exists, it is backed up to `prepare-commit-msg.vibe-backup` and chained after ours.
+
+**What the hook skips**
+
+| Situation | Behavior |
+| --- | --- |
+| Source is `merge`, `squash`, or `commit` (amend) | Leave the message alone |
+| Message file already has non-comment text (e.g. `git commit -m`) | Never overwrite |
+| No staged changes / generator error | Exit 0 — never break the commit |
+
+```bash
+git add -p
+git commit          # editor opens with a proposed conventional message
+git commit -m "x"   # untouched — your -m wins
+```
 
 ---
 

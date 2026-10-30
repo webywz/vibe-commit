@@ -60,6 +60,30 @@ describe("parseArgs", () => {
     );
   });
 
+
+  it("parses install and uninstall with --path", () => {
+    const install = parseArgs(["install", "--path", "/tmp/repo"], {});
+    assert.equal(install.command, "install");
+    assert.equal(install.path, "/tmp/repo");
+    const uninstall = parseArgs(["uninstall", "--path=/tmp/app"], {});
+    assert.equal(uninstall.command, "uninstall");
+    assert.equal(uninstall.path, "/tmp/app");
+  });
+
+  it("parses prepare-commit-msg positional args", () => {
+    const options = parseArgs(
+      ["prepare-commit-msg", "/tmp/COMMIT_EDITMSG", "merge"],
+      {},
+    );
+    assert.equal(options.command, "prepare-commit-msg");
+    assert.equal(options.messageFile, "/tmp/COMMIT_EDITMSG");
+    assert.equal(options.commitSource, "merge");
+  });
+
+  it("rejects --path outside install/uninstall", () => {
+    assert.throws(() => parseArgs(["--path", "/tmp"], {}), UsageError);
+  });
+
   it("rejects unknown flags and bad values", () => {
     assert.throws(() => parseArgs(["--wat"], {}), UsageError);
     assert.throws(() => parseArgs(["--type", "shipit"], {}), UsageError);
