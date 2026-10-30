@@ -49,8 +49,9 @@ export async function proposeMessage(
       : breaking
         ? heuristic.breakingReason ?? message.breakingReason
         : undefined;
-  return ensureBreakingFooter(
-    { ...message, breaking, breakingReason },
-    breakingFooterDetail(diff),
-  );
+  const withMeta = { ...message, breaking, breakingReason };
+  // Forced --breaking: footer uses subject, not bilingual default.
+  const footerReason =
+    kind === "forced" ? withMeta.subject : breakingFooterDetail(diff);
+  return ensureBreakingFooter(withMeta, footerReason);
 }

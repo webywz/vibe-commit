@@ -63,7 +63,10 @@ export function proposeHeuristic(input: HeuristicInput): ProposedMessage {
     engine: "heuristic",
     breakingReason: kind ? formatBreakingReason(kind) : undefined,
   };
-  return ensureBreakingFooter(message, breakingFooterDetail(diff));
+  // Forced --breaking: prefer subject in the footer (not bilingual default).
+  const footerReason =
+    kind === "forced" ? message.subject : breakingFooterDetail(diff);
+  return ensureBreakingFooter(message, footerReason);
 }
 
 export function inferType(diff: StagedDiff): CommitType {
@@ -339,9 +342,15 @@ export function breakingFooterDetail(diff: StagedDiff): string | undefined {
 
 
 
+/** Generic bilingual footer when no better reason (or empty subject) exists. */
+export const DEFAULT_BREAKING_FOOTER_DETAIL =
+  "incompatible API change · 不兼容的 API 变更";
+
 /**
  * Ensure body carries a conventional BREAKING CHANGE footer when breaking.
- * Skips if the body already mentions one. Uses subject as a last-resort reason.
+ * Skips if the body already mentions one.
+ * Prefers subject when reason is empty or the generic bilingual default.
+ * Heuristic major/export/footer-specific bilingual details are kept as-is.
  */
 export function ensureBreakingFooter(
   message: ProposedMessage,
@@ -352,8 +361,15 @@ export function ensureBreakingFooter(
   if (/BREAKING CHANGE:/i.test(body)) {
     return body === (message.body ?? "") ? message : { ...message, body };
   }
-  const detail = (reason ?? message.subject).replace(/\s+/g, " ").trim() ||
-    "incompatible API change · 不兼容的 API 变更";
+  const subject = message.subject.replace(/\s+/g, " ").trim();
+  const normalized = (reason ?? "").replace(/\s+/g, " ").trim();
+  const useSubject =
+    Boolean(subject) &&
+    (!normalized || normalized === DEFAULT_BREAKING_FOOTER_DETAIL);
+  const detail =
+    (useSubject ? subject : normalized) ||
+    subject ||
+    DEFAULT_BREAKING_FOOTER_DETAIL;
   const footer = `BREAKING CHANGE: ${detail}`;
   return {
     ...message,
@@ -374,7 +390,7 @@ function detectBreakingFooter(diff: StagedDiff): string | undefined {
       hunk.lines.some((line) => /^\+\s*BREAKING CHANGE:/i.test(line)),
     )
   ) {
-    return "incompatible API change · 不兼容的 API 变更";
+    return DEFAULT_BREAKING_FOOTER_DETAIL;
   }
   return undefined;
 }
