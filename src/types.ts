@@ -66,6 +66,7 @@ export interface ProposeOptions {
 
 export type CliCommand =
   | "propose"
+  | "init"
   | "install"
   | "uninstall"
   | "prepare-commit-msg";
@@ -90,7 +91,9 @@ export interface CliOptions {
   version: boolean;
   /** Force breaking change marker and footer. */
   breaking: boolean;
-  /** Target repo for install/uninstall (default: cwd). */
+  /** Force overwrite when init target already exists. */
+  force: boolean;
+  /** Target repo for install/uninstall/init (default: cwd). */
   path?: string;
   /** Message file path for prepare-commit-msg. */
   messageFile?: string;

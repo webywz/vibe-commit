@@ -22,6 +22,16 @@ export const HOOK_BACKUP_NAME = "prepare-commit-msg.vibe-backup";
 
 const SKIP_SOURCES = new Set(["merge", "squash", "commit"]);
 
+export type HookManager = "husky" | "simple-git-hooks" | "bare";
+
+export interface InitResult {
+  manager: HookManager;
+  targetPath: string;
+  created: boolean;
+  updated: boolean;
+  backedUp: boolean;
+}
+
 export function hasNonCommentContent(content: string): boolean {
   return content.split(/\r?\n/).some((line) => {
     const trimmed = line.trim();
@@ -209,6 +219,223 @@ function isShebangOnly(text: string): boolean {
     trimmed === "#!/usr/bin/env bash" ||
     trimmed === "#!/bin/bash"
   );
+}
+
+/**
+ * Detect which hook manager the repo uses.
+ * Order: husky → simple-git-hooks → bare .git/hooks
+ */
+export function detectHookManager(repoPath: string): HookManager {
+  assertRepo(repoPath);
+
+  // 1. Husky: check for .husky/ directory or "husky" in package.json
+  const huskyDir = join(repoPath, ".husky");
+  if (existsSync(huskyDir)) {
+    return "husky";
+  }
+
+  const pkgPath = join(repoPath, "package.json");
+  if (existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+        devDependencies?: Record<string, string>;
+        dependencies?: Record<string, string>;
+        "simple-git-hooks"?: unknown;
+      };
+      if (
+        pkg.devDependencies?.husky ||
+        pkg.dependencies?.husky
+      ) {
+        return "husky";
+      }
+
+      // 2. simple-git-hooks: check for package or config
+      if (
+        pkg.devDependencies?.["simple-git-hooks"] ||
+        pkg.dependencies?.["simple-git-hooks"] ||
+        pkg["simple-git-hooks"]
+      ) {
+        return "simple-git-hooks";
+      }
+    } catch {
+      // Malformed package.json; fall through to bare
+    }
+  }
+
+  // 3. Bare .git/hooks
+  return "bare";
+}
+
+/**
+ * Init: auto-detect hook manager and install accordingly.
+ */
+export function initHook(
+  repoPath = process.cwd(),
+  options: {
+    force?: boolean;
+    command?: { execPath: string; cliPath: string };
+  } = {},
+): InitResult {
+  assertRepo(repoPath);
+  const manager = detectHookManager(repoPath);
+  const command = options.command ?? resolveInstallCommand();
+
+  switch (manager) {
+    case "husky":
+      return initHusky(repoPath, command, options.force);
+    case "simple-git-hooks":
+      return initSimpleGitHooks(repoPath, command, options.force);
+    case "bare":
+      return initBare(repoPath, command, options.force);
+  }
+}
+
+function initHusky(
+  repoPath: string,
+  command: { execPath: string; cliPath: string },
+  force?: boolean,
+): InitResult {
+  const huskyDir = join(repoPath, ".husky");
+  mkdirSync(huskyDir, { recursive: true });
+
+  const hookPath = join(huskyDir, HOOK_NAME);
+  const block = buildManagedHookBlock(command.execPath, command.cliPath);
+
+  const existing = existsSync(hookPath)
+    ? readFileSync(hookPath, "utf8")
+    : null;
+
+  let created = false;
+  let updated = false;
+  let backedUp = false;
+
+  if (existing === null) {
+    // Create new hook
+    writeFileSync(hookPath, `#!/bin/sh\n${block}\n`, { mode: 0o755 });
+    chmodSync(hookPath, 0o755);
+    created = true;
+  } else if (existing.includes(HOOK_BEGIN) && existing.includes(HOOK_END)) {
+    // Update existing managed block
+    const next = replaceManagedBlock(existing, block);
+    writeFileSync(hookPath, ensureTrailingNewline(next), { mode: 0o755 });
+    chmodSync(hookPath, 0o755);
+    updated = true;
+  } else {
+    // Foreign hook exists
+    if (!force) {
+      throw new GitError(
+        `${hookPath} already exists and is not managed by vibe-commit.\n` +
+          `已存在且不由 vibe-commit 管理。\n` +
+          `Use --force to overwrite (backs up as ${HOOK_BACKUP_NAME}).\n` +
+          `使用 --force 覆盖（会备份为 ${HOOK_BACKUP_NAME}）。`,
+      );
+    }
+    // Backup and overwrite
+    const backupPath = join(huskyDir, HOOK_BACKUP_NAME);
+    writeFileSync(backupPath, existing, { mode: 0o755 });
+    chmodSync(backupPath, 0o755);
+    backedUp = true;
+
+    const wrapper = [
+      "#!/bin/sh",
+      block,
+      "",
+      "# Chain the previous prepare-commit-msg hook",
+      `if [ -x ${shellQuote(backupPath)} ]; then`,
+      `  ${shellQuote(backupPath)} "$@" || exit $?`,
+      "fi",
+      "",
+    ].join("\n");
+    writeFileSync(hookPath, wrapper, { mode: 0o755 });
+    chmodSync(hookPath, 0o755);
+    created = true;
+  }
+
+  return { manager: "husky", targetPath: hookPath, created, updated, backedUp };
+}
+
+function initSimpleGitHooks(
+  repoPath: string,
+  command: { execPath: string; cliPath: string },
+  force?: boolean,
+): InitResult {
+  const pkgPath = join(repoPath, "package.json");
+  if (!existsSync(pkgPath)) {
+    throw new GitError(
+      `package.json not found at ${pkgPath}. Cannot configure simple-git-hooks.\n` +
+        `找不到 package.json，无法配置 simple-git-hooks。`,
+    );
+  }
+
+  const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+    "simple-git-hooks"?: Record<string, string>;
+  };
+
+  const hookCmd = `${shellQuote(command.execPath)} ${shellQuote(command.cliPath)} prepare-commit-msg "$1" "$2" || true`;
+
+  if (!pkg["simple-git-hooks"]) {
+    pkg["simple-git-hooks"] = {};
+  }
+
+  const existing = pkg["simple-git-hooks"][HOOK_NAME];
+  if (existing && !force) {
+    throw new GitError(
+      `package.json already has simple-git-hooks.${HOOK_NAME}:\n` +
+        `  ${existing}\n` +
+        `Use --force to overwrite.\n` +
+        `package.json 已有 simple-git-hooks.${HOOK_NAME} 配置。\n` +
+        `使用 --force 覆盖。`,
+    );
+  }
+
+  const created = !existing;
+  const updated = !!existing;
+
+  pkg["simple-git-hooks"][HOOK_NAME] = hookCmd;
+  writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf8");
+
+  return {
+    manager: "simple-git-hooks",
+    targetPath: pkgPath,
+    created,
+    updated,
+    backedUp: false,
+  };
+}
+
+function initBare(
+  repoPath: string,
+  command: { execPath: string; cliPath: string },
+  force?: boolean,
+): InitResult {
+  // Bare hooks: reuse installHook logic, but respect --force
+  const paths = resolveHookPaths(repoPath);
+  const existing = existsSync(paths.hookPath)
+    ? readFileSync(paths.hookPath, "utf8")
+    : null;
+
+  if (
+    existing &&
+    !existing.includes(HOOK_BEGIN) &&
+    !existing.includes(HOOK_END) &&
+    !force
+  ) {
+    throw new GitError(
+      `${paths.hookPath} already exists and is not managed by vibe-commit.\n` +
+        `已存在且不由 vibe-commit 管理。\n` +
+        `Use --force to overwrite (backs up as ${HOOK_BACKUP_NAME}).\n` +
+        `使用 --force 覆盖（会备份为 ${HOOK_BACKUP_NAME}）。`,
+    );
+  }
+
+  const result = installHook(repoPath, command);
+  return {
+    manager: "bare",
+    targetPath: result.hookPath,
+    created: result.created,
+    updated: result.updated,
+    backedUp: result.backedUp,
+  };
 }
 
 export function installHook(

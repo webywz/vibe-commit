@@ -10,7 +10,13 @@ import {
   appendGitHubStepSummary,
   formatGitHubAnnotations,
 } from "./github.ts";
-import { installHook, uninstallHook, runPrepareCommitMsg } from "./hook.ts";
+import {
+  initHook,
+  installHook,
+  uninstallHook,
+  runPrepareCommitMsg,
+  HOOK_BACKUP_NAME,
+} from "./hook.ts";
 import { helpText, parseArgs, UsageError } from "./parse-args.ts";
 import { proposeMessage } from "./propose.ts";
 import { renderError, renderProposal, renderVersion } from "./render.ts";
@@ -36,6 +42,9 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     return 0;
   }
 
+  if (options.command === "init") {
+    return runInit(options.path, options.force);
+  }
   if (options.command === "install") {
     return runInstall(options.path);
   }
@@ -108,6 +117,66 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       }
     }
 
+    return 0;
+  } catch (error) {
+    const text =
+      error instanceof GitError || error instanceof Error
+        ? error.message
+        : "Unexpected error";
+    process.stderr.write(`${renderError(text)}\n`);
+    return 1;
+  }
+}
+
+function runInit(repoPath?: string, force?: boolean): number {
+  try {
+    const target = resolve(repoPath ?? process.cwd());
+    const result = initHook(target, { force });
+
+    const managerLabel: Record<typeof result.manager, string> = {
+      husky: "husky",
+      "simple-git-hooks": "simple-git-hooks",
+      bare: "bare .git/hooks",
+    };
+
+    const action = result.updated
+      ? "updated"
+      : result.created
+        ? "installed"
+        : "configured";
+
+    process.stdout.write(
+      `${pc.green("ok")}  prepare-commit-msg hook ${action} (${managerLabel[result.manager]})\n` +
+        `     ${result.targetPath}\n`,
+    );
+
+    if (result.backedUp) {
+      process.stdout.write(
+        `     previous hook backed up as ${HOOK_BACKUP_NAME}\n`,
+      );
+    }
+
+    // Next steps (bilingual)
+    process.stdout.write("\n");
+    process.stdout.write(`${pc.bold("Next steps")} · 后续步骤\n`);
+
+    if (result.manager === "simple-git-hooks") {
+      process.stdout.write(
+        `  1. Run ${pc.cyan("npx simple-git-hooks")} to install hooks\n` +
+          `     运行 ${pc.cyan("npx simple-git-hooks")} 安装钩子\n`,
+      );
+      process.stdout.write(
+        `  2. Plain ${pc.cyan("git commit")} (no -m) will fill an empty message\n` +
+          `     裸 ${pc.cyan("git commit")}（无 -m）会填充空消息\n`,
+      );
+    } else {
+      process.stdout.write(
+        `  • Plain ${pc.cyan("git commit")} (no -m) will fill an empty message\n` +
+          `    裸 ${pc.cyan("git commit")}（无 -m）会填充空消息\n`,
+      );
+    }
+
+    process.stdout.write("\n");
     return 0;
   } catch (error) {
     const text =
