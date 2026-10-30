@@ -325,15 +325,18 @@ export function breakingFooterDetail(diff: StagedDiff): string | undefined {
   if (removed.length > 0) {
     const names = removed.slice(0, 3).join(", ");
     return removed.length === 1
-      ? `remove public export ${names}`
-      : `remove public exports ${names}`;
+      ? `remove public export ${names} · 删除公开 export ${names}`
+      : `remove public exports ${names} · 删除公开 exports ${names}`;
   }
 
   const bump = detectMajorVersionBump(diff);
-  if (bump) return `bump major version to ${bump.to}`;
+  if (bump) {
+    return `bump major version to ${bump.to} · 主版本升至 ${bump.to}`;
+  }
 
   return undefined;
 }
+
 
 
 /**
@@ -350,7 +353,7 @@ export function ensureBreakingFooter(
     return body === (message.body ?? "") ? message : { ...message, body };
   }
   const detail = (reason ?? message.subject).replace(/\s+/g, " ").trim() ||
-    "incompatible API change";
+    "incompatible API change · 不兼容的 API 变更";
   const footer = `BREAKING CHANGE: ${detail}`;
   return {
     ...message,
@@ -371,7 +374,7 @@ function detectBreakingFooter(diff: StagedDiff): string | undefined {
       hunk.lines.some((line) => /^\+\s*BREAKING CHANGE:/i.test(line)),
     )
   ) {
-    return "incompatible API change";
+    return "incompatible API change · 不兼容的 API 变更";
   }
   return undefined;
 }
@@ -418,16 +421,28 @@ interface VersionPair {
   to: string;
 }
 
+/** Collect every `"version": "..."` value on a +/- diff line (incl. minified JSON). */
+function versionsOnDiffLine(line: string): string[] {
+  if (!(line.startsWith("-") || line.startsWith("+"))) return [];
+  if (line.startsWith("---") || line.startsWith("+++")) return [];
+  const versions: string[] = [];
+  const re = /"version"\s*:\s*"([^"]+)"/g;
+  for (const match of line.slice(1).matchAll(re)) {
+    if (match[1]) versions.push(match[1]);
+  }
+  return versions;
+}
+
 function detectMajorVersionBump(diff: StagedDiff): VersionPair | undefined {
   for (const hunk of diff.hunks) {
     if (!/(^|\/)package\.json$/i.test(hunk.path)) continue;
     const removed: string[] = [];
     const added: string[] = [];
     for (const line of hunk.lines) {
-      const rem = line.match(/^-\s*"version"\s*:\s*"([^"]+)"/);
-      const add = line.match(/^\+\s*"version"\s*:\s*"([^"]+)"/);
-      if (rem?.[1]) removed.push(rem[1]);
-      if (add?.[1]) added.push(add[1]);
+      const versions = versionsOnDiffLine(line);
+      if (versions.length === 0) continue;
+      if (line.startsWith("-")) removed.push(...versions);
+      else if (line.startsWith("+")) added.push(...versions);
     }
     for (const from of removed) {
       for (const to of added) {
