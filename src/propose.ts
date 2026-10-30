@@ -1,7 +1,9 @@
 import { proposeWithAi } from "./ai.ts";
 import {
-  breakingReason,
+  breakingFooterDetail,
+  detectBreakingKind,
   ensureBreakingFooter,
+  formatBreakingReason,
   proposeHeuristic,
 } from "./heuristic.ts";
 import type { ProposeOptions, ProposedMessage, StagedDiff } from "./types.ts";
@@ -37,10 +39,18 @@ export async function proposeMessage(
     }
   }
 
+  const forced = Boolean(options.breaking);
   const breaking =
-    Boolean(options.breaking) || heuristic.breaking || message.breaking;
+    forced || heuristic.breaking || message.breaking;
+  const kind = detectBreakingKind(diff, forced);
+  const breakingReason =
+    kind
+      ? formatBreakingReason(kind)
+      : breaking
+        ? heuristic.breakingReason ?? message.breakingReason
+        : undefined;
   return ensureBreakingFooter(
-    { ...message, breaking },
-    breakingReason(diff),
+    { ...message, breaking, breakingReason },
+    breakingFooterDetail(diff),
   );
 }

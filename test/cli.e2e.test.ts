@@ -117,6 +117,23 @@ describe("cli e2e", () => {
     const result = run(cwd, ["--no-ai"]);
     assert.equal(result.status, 1);
     assert.match(result.stderr, /No staged changes/);
+    assert.match(result.stderr, /暂存区为空/);
+  });
+
+  it("exposes breakingReason in --json when forced", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const result = run(cwd, ["--no-ai", "--breaking", "--json"]);
+    assert.equal(result.status, 0, result.stderr);
+    const payload = JSON.parse(result.stdout) as {
+      breaking: boolean;
+      breakingReason?: string;
+      formatted: string;
+    };
+    assert.equal(payload.breaking, true);
+    assert.match(payload.breakingReason ?? "", /--breaking/);
+    assert.match(payload.formatted, /!/);
+    assert.match(payload.formatted, /BREAKING CHANGE:/);
   });
 
   it("fails outside a git repository", () => {

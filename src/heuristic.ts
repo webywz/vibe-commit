@@ -54,10 +54,16 @@ export function proposeHeuristic(input: HeuristicInput): ProposedMessage {
   const scope = input.scope ?? inferScope(diff.files);
   const subject = inferSubject(diff, type, scope);
   const body = inferBody(diff, type);
-  const breaking = Boolean(input.breaking) || inferBreaking(diff);
+  const forced = Boolean(input.breaking);
+  const kind = detectBreakingKind(diff, forced);
+  const breaking = Boolean(kind);
   const styled = applyVibe({ type, scope, subject, body, breaking }, vibe);
-  const message: ProposedMessage = { ...styled, engine: "heuristic" };
-  return ensureBreakingFooter(message, breakingReason(diff));
+  const message: ProposedMessage = {
+    ...styled,
+    engine: "heuristic",
+    breakingReason: kind ? formatBreakingReason(kind) : undefined,
+  };
+  return ensureBreakingFooter(message, breakingFooterDetail(diff));
 }
 
 export function inferType(diff: StagedDiff): CommitType {
@@ -274,12 +280,44 @@ function inferBody(diff: StagedDiff, type: CommitType): string | undefined {
   return `${lead}\n${listed}${extra}`;
 }
 
+export type BreakingKind =
+  | "export-removed"
+  | "major-bump"
+  | "footer"
+  | "forced";
+
 export function inferBreaking(diff: StagedDiff): boolean {
-  return Boolean(breakingReason(diff));
+  return Boolean(detectBreakingKind(diff, false));
 }
 
-/** Short reason for a BREAKING CHANGE footer, or undefined when not breaking. */
-export function breakingReason(diff: StagedDiff): string | undefined {
+/** Why breaking was set — heuristic signal first, then --breaking. */
+export function detectBreakingKind(
+  diff: StagedDiff,
+  forced = false,
+): BreakingKind | undefined {
+  if (detectBreakingFooter(diff)) return "footer";
+  if (detectRemovedExports(diff).length > 0) return "export-removed";
+  if (detectMajorVersionBump(diff)) return "major-bump";
+  if (forced) return "forced";
+  return undefined;
+}
+
+/** One-line bilingual cause for dry-run / --json.breakingReason. */
+export function formatBreakingReason(kind: BreakingKind): string {
+  switch (kind) {
+    case "export-removed":
+      return "export removed · 公开 export 删除";
+    case "major-bump":
+      return "major bump · package.json 主版本升级";
+    case "footer":
+      return "BREAKING CHANGE footer in diff";
+    case "forced":
+      return "forced via --breaking · --breaking 强制";
+  }
+}
+
+/** Detail text for the BREAKING CHANGE footer, or undefined when not inferred. */
+export function breakingFooterDetail(diff: StagedDiff): string | undefined {
   const footer = detectBreakingFooter(diff);
   if (footer) return footer;
 
@@ -296,6 +334,7 @@ export function breakingReason(diff: StagedDiff): string | undefined {
 
   return undefined;
 }
+
 
 /**
  * Ensure body carries a conventional BREAKING CHANGE footer when breaking.

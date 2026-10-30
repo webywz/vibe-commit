@@ -17,7 +17,8 @@ export function inspectStaged(cwd = process.cwd()): StagedDiff {
   const diff = assembleDiff(nameStatus, numstat, raw);
   if (diff.files.length === 0) {
     throw new GitError(
-      "No staged changes. Stage files first: git add -p  (or git add <path>)",
+      "No staged changes. Stage files first: git add -p (or git add <path>)\n" +
+        "暂存区为空。请先暂存：git add -p（或 git add <path>）",
     );
   }
   return diff;

@@ -56,15 +56,14 @@ vibe-commit install                 # optional prepare-commit-msg hook
 | `--vibe <style>` | `playful` \| `pro` \| `terse` (default: `pro`) |
 | `--no-ai` | Skip the API even if `OPENAI_API_KEY` is set · 即使有 Key 也不走 AI |
 | `--breaking` | Force breaking change (`!` + `BREAKING CHANGE:` footer) · 强制破坏性变更（`!` + footer） |
-
-Offline heuristic also marks breaking when the staged diff removes public `export`s or bumps a `package.json` major version, and always attaches a `BREAKING CHANGE:` footer when `breaking` is true (so `--json` body matches the formatted message).
-
-离线启发式在删掉公开 `export`、或 `package.json` 主版本升级时也会标 breaking；只要 `breaking` 为真就会补上 `BREAKING CHANGE:` footer（`--json` 的 body 与格式化输出一致）。
-
 | `--json` | Machine-readable proposal · 机器可读提案 |
 | `install [--path]` | Install the prepare-commit-msg hook · 安装钩子 |
 | `uninstall [--path]` | Remove the managed hook · 卸载钩子 |
 | `-h` / `-v` | Help / version · 帮助 / 版本 |
+
+Offline heuristic also marks breaking when the staged diff removes public `export`s or bumps a `package.json` major version, and always attaches a `BREAKING CHANGE:` footer when `breaking` is true (so `--json` body matches the formatted message). Dry-run prints a one-line cause; `--json` may include `breakingReason`.
+
+离线启发式在删掉公开 `export`、或 `package.json` 主版本升级时也会标 breaking；只要 `breaking` 为真就会补上 `BREAKING CHANGE:` footer（`--json` 的 body 与格式化输出一致）。干跑会打一行原因；`--json` 可带 `breakingReason`。
 
 **Vibes** · 语气
 
@@ -147,7 +146,9 @@ console.log(formatCommit(message));
    - new files / `export function` → `feat`
 3. Optional AI draft with automatic heuristic fallback.
    可选 AI 草稿，失败自动回退启发式。
-4. Managed `prepare-commit-msg` hook via `install` / `uninstall`.
+4. **Breaking** when the diff removes a public `export`, bumps a `package.json` major, adds a `BREAKING CHANGE:` footer, or you pass `--breaking`. Dry-run shows why; `--json` may include `breakingReason`.
+   **破坏性变更**：删公开 `export`、主版本升级、diff 里已有 footer，或传 `--breaking`。干跑说明原因；`--json` 可带 `breakingReason`。
+5. Managed `prepare-commit-msg` hook via `install` / `uninstall`.
    通过 `install` / `uninstall` 管理 `prepare-commit-msg` 钩子。
 
 ---

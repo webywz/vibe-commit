@@ -43,6 +43,13 @@ export function renderProposal(
     "",
   ];
 
+  if (message.breaking && message.breakingReason) {
+    lines.push(
+      `  ${pc.yellow("breaking")}  ${pc.dim(message.breakingReason)}`,
+    );
+    lines.push("");
+  }
+
   if (hints.committed) {
     lines.push(`  ${pc.green("committed")}`);
     lines.push("");
