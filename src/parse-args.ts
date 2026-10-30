@@ -106,8 +106,12 @@ export function parseArgs(
     command: "propose",
     commit: false,
     dryRun: false,
-    vibe: projectConfig?.vibe ?? defaultVibeFromEnv(env),
-    locale: projectConfig?.locale ?? defaultLocaleFromEnv(env),
+    vibe: (env.VIBE_COMMIT_VIBE || env.VIBE)
+      ? defaultVibeFromEnv(env)
+      : (projectConfig?.vibe ?? defaultVibeFromEnv(env)),
+    locale: env.VIBE_COMMIT_LOCALE
+      ? defaultLocaleFromEnv(env)
+      : (projectConfig?.locale ?? defaultLocaleFromEnv(env)),
     noAi: false,
     json: false,
     github: false,
