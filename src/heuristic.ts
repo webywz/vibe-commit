@@ -2,6 +2,7 @@ import { normalizeSubject } from "./format.ts";
 import type {
   CommitType,
   DiffHunk,
+  Locale,
   ProposedMessage,
   StagedDiff,
   StagedFile,
@@ -44,15 +45,16 @@ export interface HeuristicInput {
   type?: CommitType;
   scope?: string;
   vibe: Vibe;
+  locale: Locale;
   /** Force breaking: true (ORs with inferBreaking). */
   breaking?: boolean;
 }
 
 export function proposeHeuristic(input: HeuristicInput): ProposedMessage {
-  const { diff, vibe } = input;
+  const { diff, vibe, locale } = input;
   const type = input.type ?? inferType(diff);
   const scope = input.scope ?? inferScope(diff.files);
-  const subject = inferSubject(diff, type, scope);
+  const subject = inferSubject(diff, type, scope, locale);
   const body = inferBody(diff, type);
   const forced = Boolean(input.breaking);
   const kind = detectBreakingKind(diff, forced);
@@ -61,6 +63,7 @@ export function proposeHeuristic(input: HeuristicInput): ProposedMessage {
   const message: ProposedMessage = {
     ...styled,
     engine: "heuristic",
+    locale,
     breakingReason: kind ? formatBreakingReason(kind) : undefined,
   };
   // Forced --breaking: prefer subject in the footer (not bilingual default).
@@ -178,10 +181,15 @@ export function inferScope(files: StagedFile[]): string | undefined {
 export function inferSubject(
   diff: StagedDiff,
   type: CommitType,
-  scope?: string,
+  scope: string | undefined,
+  locale: Locale,
 ): string {
   const files = diff.files;
-  if (files.length === 0) return "update project files";
+  if (files.length === 0) {
+    return normalizeSubject(
+      locale === "zh" ? "更新项目文件" : "update project files",
+    );
+  }
 
   const added = files.filter((file) => file.status === "A");
   const deleted = files.filter((file) => file.status === "D");
@@ -195,44 +203,87 @@ export function inferSubject(
     !scope &&
     type === "feat"
   ) {
-    return normalizeSubject("add initial implementation");
+    return normalizeSubject(
+      locale === "zh" ? "添加初始实现" : "add initial implementation",
+    );
   }
 
   if (renamed.length === 1 && files.length === 1) {
     const file = renamed[0]!;
+    const fromName = stem(file.fromPath ?? file.path);
+    const toName = stem(file.path);
     return normalizeSubject(
-      `rename ${stem(file.fromPath ?? file.path)} to ${stem(file.path)}`,
+      locale === "zh"
+        ? `重命名 ${fromName} 为 ${toName}`
+        : `rename ${fromName} to ${toName}`,
     );
   }
   if (deleted.length === files.length) {
-    return normalizeSubject(
-      `remove ${joinNames(deleted.map((file) => stem(file.path)))}`,
-    );
+    const names = joinNames(deleted.map((file) => stem(file.path)));
+    return normalizeSubject(locale === "zh" ? `删除 ${names}` : `remove ${names}`);
   }
   if (idents.length > 0 && (type === "feat" || type === "fix")) {
-    const verb = type === "fix" ? "fix" : "add";
+    const verb = type === "fix" ? (locale === "zh" ? "修复" : "fix") : (locale === "zh" ? "添加" : "add");
     return normalizeSubject(`${verb} ${joinNames(idents.map(humanizeIdent))}`);
   }
   if (added.length === 1 && files.length === 1) {
-    return normalizeSubject(`add ${stem(added[0]!.path)}`);
+    const name = stem(added[0]!.path);
+    return normalizeSubject(locale === "zh" ? `添加 ${name}` : `add ${name}`);
   }
   if (added.length > 1 && added.length === files.length) {
-    return normalizeSubject(`add ${summarizeFiles(added, scope)}`);
+    const summary = summarizeFiles(added, scope);
+    return normalizeSubject(locale === "zh" ? `添加 ${summary}` : `add ${summary}`);
   }
 
   const focus =
     files.length === 1 ? stem(files[0]!.path) : summarizeFiles(files, scope);
-  return normalizeSubject(verbFor(type, focus, files));
+  return normalizeSubject(verbFor(type, focus, files, locale));
 }
 
 function verbFor(
   type: CommitType,
   focus: string,
   files: StagedFile[],
+  locale: Locale,
 ): string {
   const mostlyAdd =
     files.reduce((sum, file) => sum + file.additions, 0) >
     files.reduce((sum, file) => sum + file.deletions, 0) * 1.4;
+  
+  if (locale === "zh") {
+    switch (type) {
+      case "feat":
+        return mostlyAdd ? `添加 ${focus}` : `更新 ${focus}`;
+      case "fix":
+        return `修复 ${focus}`;
+      case "docs":
+        return files.some((file) => /readme/i.test(file.path))
+          ? "更新 readme"
+          : `更新 ${focus}`;
+      case "test":
+        return mostlyAdd ? `添加 ${focus} 测试` : `更新 ${focus} 测试`;
+      case "refactor":
+        return `重构 ${focus}`;
+      case "perf":
+        return `优化 ${focus} 性能`;
+      case "style":
+        return `格式化 ${focus}`;
+      case "ci":
+        return `更新 ${focus} 工作流`;
+      case "build":
+        return `更新 ${focus} 构建`;
+      case "chore":
+        if (
+          files.some((file) =>
+            /package(-lock)?\.json|pnpm-lock|yarn\.lock/.test(file.path),
+          )
+        ) {
+          return "更新依赖";
+        }
+        return `更新 ${focus}`;
+    }
+  }
+  
   switch (type) {
     case "feat":
       return mostlyAdd ? `add ${focus}` : `update ${focus}`;

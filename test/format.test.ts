@@ -16,6 +16,7 @@ function msg(partial: Partial<ProposedMessage> = {}): ProposedMessage {
     subject: "add login",
     breaking: false,
     engine: "heuristic",
+    locale: "en",
     ...partial,
   };
 }
@@ -107,6 +108,7 @@ describe("parseCommit", () => {
       body: "Avoid crashing on binary files.",
       breaking: false,
       engine: "ai",
+      locale: "en",
     });
   });
 

@@ -53,6 +53,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       type: options.type,
       scope: options.scope,
       vibe: options.vibe,
+      locale: options.locale,
       preferAi: !options.noAi,
       breaking: options.breaking,
     });

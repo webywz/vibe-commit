@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  defaultLocaleFromEnv,
   defaultVibeFromEnv,
   helpText,
   parseArgs,
@@ -8,9 +9,10 @@ import {
 } from "../src/parse-args.ts";
 
 describe("parseArgs", () => {
-  it("defaults to pro vibe and no commit", () => {
+  it("defaults to pro vibe, en locale, and no commit", () => {
     const options = parseArgs([], {});
     assert.equal(options.vibe, "pro");
+    assert.equal(options.locale, "en");
     assert.equal(options.commit, false);
     assert.equal(options.dryRun, false);
     assert.equal(options.noAi, false);
@@ -72,6 +74,21 @@ describe("parseArgs", () => {
     );
   });
 
+  it("reads locale from env when flag is omitted", () => {
+    assert.equal(parseArgs([], { VIBE_COMMIT_LOCALE: "zh" }).locale, "zh");
+    assert.equal(parseArgs([], { VIBE_COMMIT_LOCALE: "en" }).locale, "en");
+  });
+
+  it("parses --locale flag", () => {
+    assert.equal(parseArgs(["--locale", "zh"], {}).locale, "zh");
+    assert.equal(parseArgs(["--locale=en"], {}).locale, "en");
+  });
+
+  it("rejects invalid locale", () => {
+    assert.throws(() => parseArgs(["--locale", "fr"], {}), UsageError);
+    assert.throws(() => parseArgs(["--locale", "de"], {}), UsageError);
+  });
+
 
   it("parses install and uninstall with --path", () => {
     const install = parseArgs(["install", "--path", "/tmp/repo"], {});
@@ -107,6 +124,21 @@ describe("parseArgs", () => {
 describe("defaultVibeFromEnv", () => {
   it("falls back to pro for unknown values", () => {
     assert.equal(defaultVibeFromEnv({ VIBE: "LOUD" }), "pro");
+  });
+});
+
+describe("defaultLocaleFromEnv", () => {
+  it("defaults to en", () => {
+    assert.equal(defaultLocaleFromEnv({}), "en");
+  });
+
+  it("falls back to en for unknown values", () => {
+    assert.equal(defaultLocaleFromEnv({ VIBE_COMMIT_LOCALE: "fr" }), "en");
+    assert.equal(defaultLocaleFromEnv({ VIBE_COMMIT_LOCALE: "de" }), "en");
+  });
+
+  it("accepts zh", () => {
+    assert.equal(defaultLocaleFromEnv({ VIBE_COMMIT_LOCALE: "zh" }), "zh");
   });
 });
 
