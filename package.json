@@ -1,6 +1,6 @@
 {
   "name": "@webywz/vibe-commit",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Stylish conventional commit messages with personality. Offline-first, AI-optional.",
   "keywords": [
     "git",
