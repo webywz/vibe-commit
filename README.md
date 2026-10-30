@@ -47,7 +47,9 @@ vibe-commit --breaking --dry-run    # force ! + BREAKING CHANGE footer
 vibe-commit --dry-run               # print only (default; wins over --commit)
 vibe-commit --github --quiet --no-ai  # Actions annotations (CI)
 git commit -m "$(vibe-commit --dry-run)"
-vibe-commit install                 # optional prepare-commit-msg hook
+vibe-commit init                    # auto-detect hook manager and install
+vibe-commit init --force            # force overwrite existing hook/config
+vibe-commit install                 # install bare .git/hooks (legacy)
 ```
 
 | Flag / command | What it does · 作用 |
@@ -64,8 +66,10 @@ vibe-commit install                 # optional prepare-commit-msg hook
 | `--github` | Emit GitHub Actions `::notice` / `::warning` / `::error` annotations; write `GITHUB_OUTPUT` + `GITHUB_STEP_SUMMARY` when set · 输出 Actions 注解，并在环境变量存在时写 Job 输出与 Summary |
 | `--quiet` | Suppress the pretty terminal report; `--json` / `--github` still emit · 抑制漂亮终端报告 |
 | `--max-annotations <n>` | Cap `--github` annotation lines (default: 20; invalid → UsageError) · 限制注解条数 |
-| `install [--path]` | Install the prepare-commit-msg hook · 安装钩子 |
+| `init [--path] [--force]` | Auto-detect hook manager and install (husky → simple-git-hooks → bare .git/hooks) · 自动检测钩子管理器并安装 |
+| `install [--path]` | Install the prepare-commit-msg hook (bare .git/hooks) · 安装钩子（直接写 .git/hooks） |
 | `uninstall [--path]` | Remove the managed hook · 卸载钩子 |
+| `--force` | Force overwrite existing hook/config (init only) · 强制覆盖已存在的钩子配置（仅 init） |
 | `-h` / `-v` | Help / version · 帮助 / 版本 |
 
 Offline heuristic also marks breaking when the staged diff removes public `export`s or bumps a `package.json` major version, and always attaches a `BREAKING CHANGE:` footer when `breaking` is true (so `--json` body matches the formatted message). Forced `--breaking` puts the **subject** in the footer; heuristic breaking still prefers a more specific bilingual reason when one is available. Dry-run prints a one-line cause; `--json` may include `breakingReason`.
@@ -107,20 +111,56 @@ $ vibe-commit
 ### Git hook · 钩子
 
 ```bash
-vibe-commit install
+vibe-commit init                         # auto-detect and install
+vibe-commit init --force                 # overwrite existing hook/config
+vibe-commit init --path ~/projects/app
+vibe-commit install                      # bare .git/hooks only (legacy)
 vibe-commit install --path ~/projects/app
 vibe-commit uninstall
 ```
 
-After install, plain `git commit` (no `-m`) fills an empty or comment-only message file with a conventional proposal.
+**`init` auto-detects your hook manager** in this order:
 
-安装后，裸 `git commit`（没有 `-m`）会在空 / 仅注释的提交说明里填入提案。
+1. **husky** — if `package.json` has a `husky` dependency or `.husky/` directory exists
+   - Writes `.husky/prepare-commit-msg`
+2. **simple-git-hooks** — if `package.json` has `simple-git-hooks` dependency or config
+   - Sets `simple-git-hooks.prepare-commit-msg` in `package.json`
+   - After `init`, run `npx simple-git-hooks` to install
+3. **bare .git/hooks** — fallback
+   - Writes `.git/hooks/prepare-commit-msg` directly
+
+**`init` 自动检测钩子管理器**，顺序如下：
+
+1. **husky** — `package.json` 有 `husky` 依赖或存在 `.husky/` 目录
+   - 写入 `.husky/prepare-commit-msg`
+2. **simple-git-hooks** — `package.json` 有 `simple-git-hooks` 依赖或配置
+   - 在 `package.json` 中设置 `simple-git-hooks.prepare-commit-msg`
+   - `init` 后需运行 `npx simple-git-hooks` 来安装
+3. **bare .git/hooks** — 兜底
+   - 直接写入 `.git/hooks/prepare-commit-msg`
+
+After `init` or `install`, plain `git commit` (no `-m`) fills an empty or comment-only message file with a conventional proposal.
+
+`init` 或 `install` 后，裸 `git commit`（没有 `-m`）会在空 / 仅注释的提交说明里填入提案。
 
 | Situation · 情况 | Behavior · 行为 |
 | --- | --- |
 | Source is `merge`, `squash`, or `commit` (amend) | Leave the message alone · 不改 |
 | Message already has non-comment text (e.g. `git commit -m`) | Never overwrite · 绝不覆盖 |
 | No staged changes / generator error | Exit 0 — never break the commit · 以 0 退出，不打断提交 |
+| Hook/config already exists (not managed) | `init` refuses without `--force` · `init` 拒绝（除非 `--force`） |
+
+**Conflict behavior · 冲突行为**
+
+- If `init` finds a hook or config entry that already exists and is **not** managed by vibe-commit (no `# BEGIN VIBE-COMMIT` markers or different command), it **refuses** with exit 1 and shows a bilingual error unless `--force` is passed.
+- With `--force`, existing hooks are backed up as `prepare-commit-msg.vibe-backup` and chained after ours (like `install` does).
+- Managed blocks (already installed by vibe-commit) are updated in place without `--force`.
+
+**如果 `init` 发现已有钩子或配置且不由 vibe-commit 管理**（没有 `# BEGIN VIBE-COMMIT` 标记或不同命令），会以退出码 1 拒绝并显示双语错误信息，除非传递了 `--force`。
+
+**使用 `--force` 时**，现有钩子会备份为 `prepare-commit-msg.vibe-backup` 并链式调用（与 `install` 一样）。
+
+**已管理的代码块**（已由 vibe-commit 安装）会就地更新，无需 `--force`。
 
 Hook stays **offline by default** (`VIBE_COMMIT_HOOK_AI=1` to allow AI). Unique markers (`# BEGIN VIBE-COMMIT` … `# END VIBE-COMMIT`) keep uninstall clean. A foreign `prepare-commit-msg` is backed up to `prepare-commit-msg.vibe-backup` and chained after ours.
 

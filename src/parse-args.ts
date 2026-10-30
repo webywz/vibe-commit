@@ -15,10 +15,13 @@ const HELP = `vibe-commit — stylish conventional commits, offline-first
 
 Usage · 用法
   vibe-commit [options]
+  vibe-commit init [--path <repo>] [--force]
   vibe-commit install [--path <repo>]
   vibe-commit uninstall [--path <repo>]
 
 Commands · 命令
+  init                Auto-detect hook manager (husky / simple-git-hooks / bare .git/hooks) and install
+                      自动检测钩子管理器并安装
   install             Install a prepare-commit-msg hook in the repo
   uninstall           Remove the managed prepare-commit-msg hook
 
@@ -37,7 +40,9 @@ Options · 参数
   --quiet             Suppress the pretty terminal report (--json / --github still emit)
                       抑制漂亮终端报告；--json / --github 仍照常
   --max-annotations <n>  Cap GitHub annotation lines (default: 20) · 限制注解条数
-  --path <repo>       Repo root for install/uninstall (default: cwd)
+  --path <repo>       Repo root for init/install/uninstall (default: cwd)
+  --force             Force overwrite when init target already exists (init only)
+                      强制覆盖已存在的钩子配置（仅 init）
   -h, --help          Show help
   -v, --version       Show version
 
@@ -60,9 +65,16 @@ GITHUB_STEP_SUMMARY is set. --quiet hides the pretty report only.
 --quiet 只隐藏漂亮终端报告。
 
 Git hook
-  After \`vibe-commit install\`, plain \`git commit\` (no -m) fills an empty /
-  comment-only message file with a vibe-commit proposal. Skips merge, squash,
-  amend (source=commit), and any message that already has non-comment text.
+  After \`vibe-commit init\` or \`vibe-commit install\`, plain \`git commit\` (no -m)
+  fills an empty / comment-only message file with a vibe-commit proposal. Skips merge,
+  squash, amend (source=commit), and any message that already has non-comment text.
+  
+  \`init\` auto-detects your hook manager:
+    1. husky (package.json has "husky" dep or .husky/ exists) → .husky/prepare-commit-msg
+    2. simple-git-hooks (package.json has "simple-git-hooks" dep or config) → set config entry
+    3. else bare .git/hooks → install prepare-commit-msg directly
+  
+  Use \`--force\` to overwrite existing hook/config (creates backup where applicable).
 
 Project config
   .vibe-commit.json or package.json#vibeCommit
@@ -78,6 +90,8 @@ Examples · 示例
   vibe-commit --github --quiet --no-ai
   vibe-commit --github --json --max-annotations 10
   git commit -m "$(vibe-commit --dry-run)"
+  vibe-commit init
+  vibe-commit init --force
   vibe-commit install
   vibe-commit uninstall --path ~/projects/app
 `;
@@ -115,6 +129,7 @@ export function parseArgs(
     help: false,
     version: false,
     breaking: false,
+    force: false,
   };
 
   let i = 0;
@@ -173,6 +188,10 @@ export function parseArgs(
       options.breaking = true;
       continue;
     }
+    if (arg === "--force") {
+      options.force = true;
+      continue;
+    }
     if (arg === "--type" || arg.startsWith("--type=")) {
       const value = arg.includes("=") ? arg.slice("--type=".length) : argv[++i];
       options.type = parseType(value);
@@ -227,10 +246,15 @@ export function parseArgs(
 
   if (
     options.path &&
+    options.command !== "init" &&
     options.command !== "install" &&
     options.command !== "uninstall"
   ) {
-    throw new UsageError("--path is only valid with install or uninstall");
+    throw new UsageError("--path is only valid with init, install or uninstall");
+  }
+
+  if (options.force && options.command !== "init") {
+    throw new UsageError("--force is only valid with init");
   }
 
   return options;
@@ -238,6 +262,7 @@ export function parseArgs(
 
 function parseCommand(value: string): CliCommand | null {
   switch (value) {
+    case "init":
     case "install":
     case "uninstall":
     case "prepare-commit-msg":

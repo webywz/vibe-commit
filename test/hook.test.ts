@@ -22,6 +22,8 @@ import {
   runPrepareCommitMsg,
   shouldSkipPrepareCommitMsg,
   uninstallHook,
+  detectHookManager,
+  initHook,
 } from "../src/hook.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -319,3 +321,196 @@ describe("hook e2e with git commit", () => {
     assert.equal(subject, "docs: manual message");
   });
 });
+
+describe("init command", () => {
+  it("detects bare .git/hooks and installs", () => {
+    const cwd = makeRepo();
+    const result = runCli(cwd, ["init"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /bare \.git\/hooks/i);
+    assert.match(result.stdout, /installed|configured/i);
+    assert.equal(
+      existsSync(join(cwd, ".git", "hooks", "prepare-commit-msg")),
+      true,
+    );
+  });
+
+  it("detects husky when .husky/ directory exists", () => {
+    const cwd = makeRepo();
+    mkdirSync(join(cwd, ".husky"), { recursive: true });
+    const result = runCli(cwd, ["init"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /husky/i);
+    const hookPath = join(cwd, ".husky", "prepare-commit-msg");
+    assert.equal(existsSync(hookPath), true);
+    const content = readFileSync(hookPath, "utf8");
+    assert.match(content, /BEGIN VIBE-COMMIT/);
+  });
+
+  it("detects husky when package.json has husky dependency", () => {
+    const cwd = makeRepo();
+    writeFileSync(
+      join(cwd, "package.json"),
+      JSON.stringify({ devDependencies: { husky: "^9.0.0" } }),
+    );
+    mkdirSync(join(cwd, ".husky"), { recursive: true });
+    const result = runCli(cwd, ["init"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /husky/i);
+    const hookPath = join(cwd, ".husky", "prepare-commit-msg");
+    assert.equal(existsSync(hookPath), true);
+  });
+
+  it("detects simple-git-hooks when package.json has dependency", () => {
+    const cwd = makeRepo();
+    writeFileSync(
+      join(cwd, "package.json"),
+      JSON.stringify({
+        devDependencies: { "simple-git-hooks": "^2.9.0" },
+      }),
+    );
+    const result = runCli(cwd, ["init"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /simple-git-hooks/i);
+    const pkg = JSON.parse(
+      readFileSync(join(cwd, "package.json"), "utf8"),
+    ) as { "simple-git-hooks"?: Record<string, string> };
+    assert.ok(pkg["simple-git-hooks"]?.["prepare-commit-msg"]);
+    assert.match(
+      pkg["simple-git-hooks"]["prepare-commit-msg"],
+      /prepare-commit-msg/,
+    );
+  });
+
+  it("detects simple-git-hooks when package.json has config", () => {
+    const cwd = makeRepo();
+    writeFileSync(
+      join(cwd, "package.json"),
+      JSON.stringify({
+        "simple-git-hooks": {},
+        devDependencies: { "simple-git-hooks": "^2.9.0" },
+      }),
+    );
+    const result = runCli(cwd, ["init"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /simple-git-hooks/i);
+  });
+
+  it("refuses to overwrite foreign hook without --force", () => {
+    const cwd = makeRepo();
+    const hooksDir = join(cwd, ".git", "hooks");
+    mkdirSync(hooksDir, { recursive: true });
+    const hookPath = join(hooksDir, "prepare-commit-msg");
+    writeFileSync(hookPath, "#!/bin/sh\necho foreign\n", { mode: 0o755 });
+    chmodSync(hookPath, 0o755);
+
+    const result = runCli(cwd, ["init"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /already exists/i);
+    assert.match(result.stderr, /--force/i);
+    // Foreign hook should be unchanged
+    assert.match(readFileSync(hookPath, "utf8"), /foreign/);
+  });
+
+  it("overwrites foreign hook with --force", () => {
+    const cwd = makeRepo();
+    const hooksDir = join(cwd, ".git", "hooks");
+    mkdirSync(hooksDir, { recursive: true });
+    const hookPath = join(hooksDir, "prepare-commit-msg");
+    writeFileSync(hookPath, "#!/bin/sh\necho foreign\n", { mode: 0o755 });
+    chmodSync(hookPath, 0o755);
+
+    const result = runCli(cwd, ["init", "--force"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /installed|configured/i);
+    assert.match(result.stdout, /backed up/i);
+
+    // Backup should exist
+    const backupPath = join(hooksDir, "prepare-commit-msg.vibe-backup");
+    assert.equal(existsSync(backupPath), true);
+    assert.match(readFileSync(backupPath, "utf8"), /foreign/);
+
+    // New hook should have vibe-commit and chain the backup
+    const content = readFileSync(hookPath, "utf8");
+    assert.match(content, /BEGIN VIBE-COMMIT/);
+    assert.match(content, /vibe-backup/);
+  });
+
+  it("updates existing managed hook without --force", () => {
+    const cwd = makeRepo();
+    // Install first
+    const install = runCli(cwd, ["init"]);
+    assert.equal(install.status, 0, install.stderr);
+
+    // Init again should update
+    const update = runCli(cwd, ["init"]);
+    assert.equal(update.status, 0, update.stderr);
+    assert.match(update.stdout, /updated/i);
+  });
+
+  it("refuses to overwrite simple-git-hooks config without --force", () => {
+    const cwd = makeRepo();
+    writeFileSync(
+      join(cwd, "package.json"),
+      JSON.stringify({
+        "simple-git-hooks": {
+          "prepare-commit-msg": "echo existing",
+        },
+        devDependencies: { "simple-git-hooks": "^2.9.0" },
+      }),
+    );
+
+    const result = runCli(cwd, ["init"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /already has/i);
+    assert.match(result.stderr, /--force/i);
+  });
+
+  it("overwrites simple-git-hooks config with --force", () => {
+    const cwd = makeRepo();
+    writeFileSync(
+      join(cwd, "package.json"),
+      JSON.stringify({
+        "simple-git-hooks": {
+          "prepare-commit-msg": "echo existing",
+        },
+        devDependencies: { "simple-git-hooks": "^2.9.0" },
+      }),
+    );
+
+    const result = runCli(cwd, ["init", "--force"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /simple-git-hooks/i);
+    const pkg = JSON.parse(
+      readFileSync(join(cwd, "package.json"), "utf8"),
+    ) as { "simple-git-hooks"?: Record<string, string> };
+    assert.match(
+      pkg["simple-git-hooks"]["prepare-commit-msg"],
+      /prepare-commit-msg/,
+    );
+  });
+
+  it("init hook is usable with git commit", () => {
+    const cwd = makeRepo();
+    const result = runCli(cwd, ["init"]);
+    assert.equal(result.status, 0, result.stderr);
+
+    const commit = spawnSync("git", ["commit", "--allow-empty-message"], {
+      cwd,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GIT_EDITOR: "true",
+        GIT_COMMITTER_NAME: "Vibe Tester",
+        GIT_COMMITTER_EMAIL: "vibe@test.local",
+        OPENAI_API_KEY: "",
+        VIBE_COMMIT_VIBE: "pro",
+        NO_COLOR: "1",
+      },
+    });
+    assert.equal(commit.status, 0, commit.stderr + commit.stdout);
+    const subject = git(cwd, ["log", "-1", "--pretty=%s"]).trim();
+    assert.match(subject, /^feat\(auth\): /);
+  });
+});
+
