@@ -10,9 +10,19 @@ export {
 } from "./heuristic.ts";
 export { parseArgs, helpText, UsageError } from "./parse-args.ts";
 export { assembleDiff, parseUnifiedDiff } from "./parse-diff.ts";
+export {
+  installHook,
+  uninstallHook,
+  runPrepareCommitMsg,
+  shouldSkipPrepareCommitMsg,
+  hasNonCommentContent,
+  HOOK_BEGIN,
+  HOOK_END,
+} from "./hook.ts";
 export { proposeMessage } from "./propose.ts";
 export { applyVibe } from "./vibe.ts";
 export type {
+  CliCommand,
   CliOptions,
   CommitType,
   ProposedMessage,

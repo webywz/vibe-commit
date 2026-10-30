@@ -55,7 +55,14 @@ export interface ProposeOptions {
   preferAi?: boolean;
 }
 
+export type CliCommand =
+  | "propose"
+  | "install"
+  | "uninstall"
+  | "prepare-commit-msg";
+
 export interface CliOptions {
+  command: CliCommand;
   commit: boolean;
   dryRun: boolean;
   type?: CommitType;
@@ -65,4 +72,10 @@ export interface CliOptions {
   json: boolean;
   help: boolean;
   version: boolean;
+  /** Target repo for install/uninstall (default: cwd). */
+  path?: string;
+  /** Message file path for prepare-commit-msg. */
+  messageFile?: string;
+  /** Git prepare-commit-msg source (message|template|merge|squash|commit). */
+  commitSource?: string;
 }

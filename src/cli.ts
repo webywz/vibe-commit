@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import pc from "picocolors";
 import { formatCommit } from "./format.ts";
 import { commitWithMessage, GitError, inspectStaged } from "./git.ts";
+import { installHook, uninstallHook, runPrepareCommitMsg } from "./hook.ts";
 import { helpText, parseArgs, UsageError } from "./parse-args.ts";
 import { proposeMessage } from "./propose.ts";
 import { renderError, renderProposal, renderVersion } from "./render.ts";
@@ -28,6 +29,16 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (options.version) {
     process.stdout.write(`${renderVersion(readVersion())}\n`);
     return 0;
+  }
+
+  if (options.command === "install") {
+    return runInstall(options.path);
+  }
+  if (options.command === "uninstall") {
+    return runUninstall(options.path);
+  }
+  if (options.command === "prepare-commit-msg") {
+    return runHookPrepare(options.messageFile!, options.commitSource);
   }
 
   const piped = !process.stdout.isTTY;
@@ -68,6 +79,79 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     process.stderr.write(`${renderError(text)}\n`);
     return 1;
   }
+}
+
+function runInstall(repoPath?: string): number {
+  try {
+    const target = resolve(repoPath ?? process.cwd());
+    const result = installHook(target);
+    const action = result.updated
+      ? "updated"
+      : result.created
+        ? "installed"
+        : "installed";
+    process.stdout.write(
+      `${pc.green("ok")}  prepare-commit-msg hook ${action}\n` +
+        `     ${result.hookPath}\n`,
+    );
+    if (result.backedUp) {
+      process.stdout.write(
+        `     previous hook backed up as prepare-commit-msg.vibe-backup\n`,
+      );
+    }
+    process.stdout.write(
+      `     tip: plain \`git commit\` (no -m) will fill an empty message\n`,
+    );
+    return 0;
+  } catch (error) {
+    const text =
+      error instanceof GitError || error instanceof Error
+        ? error.message
+        : "Unexpected error";
+    process.stderr.write(`${renderError(text)}\n`);
+    return 1;
+  }
+}
+
+function runUninstall(repoPath?: string): number {
+  try {
+    const target = resolve(repoPath ?? process.cwd());
+    const result = uninstallHook(target);
+    if (!result.removed) {
+      process.stdout.write(
+        `${pc.yellow("skip")}  no managed vibe-commit hook found\n` +
+          `      ${result.hookPath}\n`,
+      );
+      return 0;
+    }
+    process.stdout.write(
+      `${pc.green("ok")}  prepare-commit-msg hook removed\n` +
+        `     ${result.hookPath}\n`,
+    );
+    if (result.restored) {
+      process.stdout.write(`     previous hook restored from backup\n`);
+    }
+    return 0;
+  } catch (error) {
+    const text =
+      error instanceof GitError || error instanceof Error
+        ? error.message
+        : "Unexpected error";
+    process.stderr.write(`${renderError(text)}\n`);
+    return 1;
+  }
+}
+
+async function runHookPrepare(
+  messageFile: string,
+  commitSource?: string,
+): Promise<number> {
+  try {
+    await runPrepareCommitMsg(messageFile, commitSource, process.cwd());
+  } catch {
+    // Never fail a commit because the hook misfired.
+  }
+  return 0;
 }
 
 function readVersion(): string {
