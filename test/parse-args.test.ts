@@ -13,6 +13,7 @@ describe("parseArgs", () => {
     assert.equal(options.commit, false);
     assert.equal(options.dryRun, false);
     assert.equal(options.noAi, false);
+    assert.equal(options.breaking, false);
   });
 
   it("parses long flags and equals syntax", () => {
@@ -26,6 +27,7 @@ describe("parseArgs", () => {
         "--vibe",
         "playful",
         "--no-ai",
+        "--breaking",
         "--json",
       ],
       {},
@@ -38,6 +40,7 @@ describe("parseArgs", () => {
         scope: options.scope,
         vibe: options.vibe,
         noAi: options.noAi,
+        breaking: options.breaking,
         json: options.json,
       },
       {
@@ -47,9 +50,14 @@ describe("parseArgs", () => {
         scope: "api",
         vibe: "playful",
         noAi: true,
+        breaking: true,
         json: true,
       },
     );
+  });
+
+  it("parses --breaking", () => {
+    assert.equal(parseArgs(["--breaking"], {}).breaking, true);
   });
 
   it("reads vibe from env when flag is omitted", () => {

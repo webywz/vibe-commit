@@ -53,6 +53,8 @@ export interface ProposeOptions {
   scope?: string;
   vibe: Vibe;
   preferAi?: boolean;
+  /** Force a breaking change (! + BREAKING CHANGE footer). */
+  breaking?: boolean;
 }
 
 export type CliCommand =
@@ -72,6 +74,8 @@ export interface CliOptions {
   json: boolean;
   help: boolean;
   version: boolean;
+  /** Force breaking change marker and footer. */
+  breaking: boolean;
   /** Target repo for install/uninstall (default: cwd). */
   path?: string;
   /** Message file path for prepare-commit-msg. */

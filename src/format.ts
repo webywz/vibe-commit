@@ -10,12 +10,19 @@ const HEADER_RE = new RegExp(
   `^(${TYPE_PATTERN})(?:\\(([a-zA-Z0-9][\\w./-]{0,62})\\))?(!)?:\\s*(.+)$`,
 );
 
+const BREAKING_FOOTER_RE = /^BREAKING[ -]CHANGE:/im;
+
 export function formatCommit(message: ProposedMessage): string {
   const bang = message.breaking ? "!" : "";
+  const subject = normalizeSubject(message.subject);
   const head = message.scope
-    ? `${message.type}(${message.scope})${bang}: ${normalizeSubject(message.subject)}`
-    : `${message.type}${bang}: ${normalizeSubject(message.subject)}`;
-  const body = message.body?.trim();
+    ? `${message.type}(${message.scope})${bang}: ${subject}`
+    : `${message.type}${bang}: ${subject}`;
+  let body = message.body?.trim() || "";
+  if (message.breaking && !BREAKING_FOOTER_RE.test(body)) {
+    const footer = `BREAKING CHANGE: ${subject}`;
+    body = body ? `${body}\n\n${footer}` : footer;
+  }
   return body ? `${head}\n\n${body}` : head;
 }
 
