@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, describe, it } from "node:test";
@@ -156,4 +156,37 @@ describe("cli e2e", () => {
     assert.equal(version.status, 0);
     assert.match(version.stdout, /vibe-commit \d+\.\d+\.\d+/);
   });
+
+  it("emits GitHub annotations with --github --quiet", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const dir = mkdtempSync(join(tmpdir(), "vibe-commit-gh-e2e-"));
+    repos.push(dir);
+    const outFile = join(dir, "github_output");
+    const sumFile = join(dir, "step_summary.md");
+    const result = run(
+      cwd,
+      ["--no-ai", "--github", "--quiet", "--max-annotations", "5"],
+      { GITHUB_OUTPUT: outFile, GITHUB_STEP_SUMMARY: sumFile },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /^::(notice|warning|error) /m);
+    assert.doesNotMatch(result.stdout, /proposed|next  vibe-commit/);
+    const outputs = readFileSync(outFile, "utf8");
+    assert.match(outputs, /^title=/m);
+    assert.match(outputs, /^findings=/m);
+    const summary = readFileSync(sumFile, "utf8");
+    assert.match(summary, /## vibe-commit/);
+  });
+
+  it("keeps --json stdout clean when combined with --github", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const result = run(cwd, ["--no-ai", "--github", "--json", "--quiet"]);
+    assert.equal(result.status, 0, result.stderr);
+    const payload = JSON.parse(result.stdout) as { formatted: string };
+    assert.match(payload.formatted, /feat\(auth\):/);
+    assert.match(result.stderr, /^::(notice|warning|error) /m);
+  });
+
 });

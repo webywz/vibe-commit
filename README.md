@@ -17,7 +17,7 @@
 </p>
 
 Companion spirit to [diff-vibe](https://github.com/webywz/diff-vibe): commits here, pull requests there.
-Pair walkthrough (EN/中文) and a copy-pasteable helper: [`examples/pair-workflow.md`](./examples/pair-workflow.md) · [`examples/commit-msg.sh`](./examples/commit-msg.sh) (ship in the npm tarball).
+Pair walkthrough (EN/中文), helper script, and CI sample: [`examples/pair-workflow.md`](./examples/pair-workflow.md) · [`examples/commit-msg.sh`](./examples/commit-msg.sh) · [`examples/github-actions.yml`](./examples/github-actions.yml) (ship in the npm tarball).
 
 与 [diff-vibe](https://github.com/webywz/diff-vibe) 成对：这边写 commit，那边写 PR。
 成对流程与可复制脚本见 [`examples/`](./examples/)（随 npm 包发布）。
@@ -45,6 +45,7 @@ vibe-commit                         # propose from staged diff
 vibe-commit --vibe playful --commit # write the commit
 vibe-commit --breaking --dry-run    # force ! + BREAKING CHANGE footer
 vibe-commit --dry-run               # print only (default; wins over --commit)
+vibe-commit --github --quiet --no-ai  # Actions annotations (CI)
 git commit -m "$(vibe-commit --dry-run)"
 vibe-commit install                 # optional prepare-commit-msg hook
 ```
@@ -59,6 +60,9 @@ vibe-commit install                 # optional prepare-commit-msg hook
 | `--no-ai` | Skip the API even if `OPENAI_API_KEY` is set · 即使有 Key 也不走 AI |
 | `--breaking` | Force breaking (`!` + `BREAKING CHANGE:` footer = **subject**) · 强制破坏性变更（`!` + footer 文本即 **subject**） |
 | `--json` | Machine-readable proposal · 机器可读提案 |
+| `--github` | Emit GitHub Actions `::notice` / `::warning` / `::error` annotations; write `GITHUB_OUTPUT` + `GITHUB_STEP_SUMMARY` when set · 输出 Actions 注解，并在环境变量存在时写 Job 输出与 Summary |
+| `--quiet` | Suppress the pretty terminal report; `--json` / `--github` still emit · 抑制漂亮终端报告 |
+| `--max-annotations <n>` | Cap `--github` annotation lines (default: 20; invalid → UsageError) · 限制注解条数 |
 | `install [--path]` | Install the prepare-commit-msg hook · 安装钩子 |
 | `uninstall [--path]` | Remove the managed hook · 卸载钩子 |
 | `-h` / `-v` | Help / version · 帮助 / 版本 |
@@ -75,7 +79,7 @@ npx --yes @webywz/vibe-commit --commit
 npx --yes @webywz/diff-vibe@^0.1.8 --base main --create
 ```
 
-Commits here · PRs there. Full walkthrough (EN/中文) and `commit-msg.sh` live in [`examples/pair-workflow.md`](./examples/pair-workflow.md) and [`examples/commit-msg.sh`](./examples/commit-msg.sh). Companion-side snippets: [diff-vibe examples](https://github.com/webywz/diff-vibe/tree/main/examples).
+Commits here · PRs there. Full walkthrough (EN/中文), `commit-msg.sh`, and Actions sample live in [`examples/`](./examples/). Companion-side snippets: [diff-vibe examples](https://github.com/webywz/diff-vibe/tree/main/examples).
 
 这边写 commit，那边写 PR。完整成对流程与脚本见 [`examples/`](./examples/)。成对仓库示例：[diff-vibe examples](https://github.com/webywz/diff-vibe/tree/main/examples)。
 
@@ -164,6 +168,8 @@ console.log(formatCommit(message));
    **破坏性变更**：删公开 `export`、主版本升级、diff 里已有 footer，或传 `--breaking`。强制 `--breaking` 时 footer 用 **subject**；启发式仍可用更具体的双语原因。干跑说明原因；`--json` 可带 `breakingReason`。
 5. Managed `prepare-commit-msg` hook via `install` / `uninstall`.
    通过 `install` / `uninstall` 管理 `prepare-commit-msg` 钩子。
+6. **GitHub Actions** mode: `--github` emits Checks annotations; optional `--quiet` / `--max-annotations`; writes job outputs + step summary when `GITHUB_OUTPUT` / `GITHUB_STEP_SUMMARY` are set. See [`examples/github-actions.yml`](./examples/github-actions.yml).
+   **GitHub Actions** 模式：`--github` 输出 Checks 注解；可选 `--quiet` / `--max-annotations`；环境变量存在时写 Job 输出与 Summary。示例见 [`examples/github-actions.yml`](./examples/github-actions.yml)。
 
 ---
 
@@ -173,6 +179,7 @@ console.log(formatCommit(message));
 - Source · [github.com/webywz/vibe-commit](https://github.com/webywz/vibe-commit)
 - Related · [diff-vibe](https://github.com/webywz/diff-vibe) · [prompt-diff](https://github.com/webywz/prompt-diff)
 - Pair workflow · [examples/pair-workflow.md](./examples/pair-workflow.md)
+- GitHub Actions · [examples/github-actions.yml](./examples/github-actions.yml)
 - License · [MIT](./LICENSE)
 
 ```bash

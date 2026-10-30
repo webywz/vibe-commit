@@ -5,6 +5,11 @@ import { fileURLToPath } from "node:url";
 import pc from "picocolors";
 import { formatCommit } from "./format.ts";
 import { commitWithMessage, GitError, inspectStaged } from "./git.ts";
+import {
+  appendGitHubJobOutput,
+  appendGitHubStepSummary,
+  formatGitHubAnnotations,
+} from "./github.ts";
 import { installHook, uninstallHook, runPrepareCommitMsg } from "./hook.ts";
 import { helpText, parseArgs, UsageError } from "./parse-args.ts";
 import { proposeMessage } from "./propose.ts";
@@ -54,19 +59,50 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     const formatted = formatCommit(message);
     const shouldCommit = options.commit && !options.dryRun;
 
+    if (options.github) {
+      const ann = formatGitHubAnnotations(message, diff, {
+        maxAnnotations: options.maxAnnotations,
+      });
+      // Keep --json stdout machine-parseable; annotations ride on stderr.
+      if (options.json) process.stderr.write(ann);
+      else process.stdout.write(ann);
+      try {
+        appendGitHubJobOutput(message, diff);
+      } catch (err) {
+        process.stderr.write(
+          `vibe-commit: GITHUB_OUTPUT skipped (${err instanceof Error ? err.message : err})\n`,
+        );
+      }
+      try {
+        appendGitHubStepSummary(message, diff);
+      } catch (err) {
+        process.stderr.write(
+          `vibe-commit: GITHUB_STEP_SUMMARY skipped (${err instanceof Error ? err.message : err})\n`,
+        );
+      }
+    }
+
     if (options.json) {
       process.stdout.write(
         `${JSON.stringify({ ...message, formatted }, null, 2)}\n`,
       );
-    } else if (piped) {
-      process.stdout.write(`${formatted}\n`);
-    } else {
-      process.stdout.write(renderProposal(diff, message));
+    } else if (!options.quiet) {
+      if (options.github) {
+        process.stdout.write("::group::vibe-commit report\n");
+      }
+      if (piped) {
+        process.stdout.write(`${formatted}\n`);
+      } else {
+        process.stdout.write(renderProposal(diff, message));
+      }
+      if (options.github) {
+        process.stdout.write("::endgroup::\n");
+      }
     }
 
     if (shouldCommit) {
       commitWithMessage(formatted);
-      if (!piped && !options.json) {
+      if (!piped && !options.json && !options.quiet) {
         process.stdout.write(`  ${pc.green("committed")}\n\n`);
       }
     }

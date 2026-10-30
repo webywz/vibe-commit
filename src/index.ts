@@ -16,6 +16,16 @@ export {
 } from "./heuristic.ts";
 export type { BreakingKind } from "./heuristic.ts";
 export { parseArgs, helpText, UsageError } from "./parse-args.ts";
+export {
+  annotation,
+  appendGitHubJobOutput,
+  appendGitHubStepSummary,
+  escapeData,
+  escapeProperty,
+  formatGitHubAnnotations,
+  formatGitHubStepSummary,
+  proposalAnnotationType,
+} from "./github.ts";
 export { assembleDiff, parseUnifiedDiff } from "./parse-diff.ts";
 export {
   installHook,

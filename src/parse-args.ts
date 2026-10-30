@@ -8,17 +8,18 @@ import {
 } from "./types.ts";
 
 const HELP = `vibe-commit — stylish conventional commits, offline-first
+有品味的 Conventional Commits（离线优先）
 
-Usage
+Usage · 用法
   vibe-commit [options]
   vibe-commit install [--path <repo>]
   vibe-commit uninstall [--path <repo>]
 
-Commands
+Commands · 命令
   install             Install a prepare-commit-msg hook in the repo
   uninstall           Remove the managed prepare-commit-msg hook
 
-Options
+Options · 参数
   --commit            Create the commit with the proposed message
   --dry-run           Print the message only (default)
   --type <type>       feat | fix | docs | style | refactor | perf | test | build | ci | chore
@@ -27,6 +28,11 @@ Options
   --no-ai             Skip AI even if OPENAI_API_KEY is set
   --breaking          Force ! + BREAKING CHANGE footer (text = subject)
   --json              Print a machine-readable proposal
+  --github            Emit GitHub Actions annotations (::notice/warning/error)
+                      输出 Actions 注解；有 GITHUB_OUTPUT / GITHUB_STEP_SUMMARY 时写输出与 Job Summary
+  --quiet             Suppress the pretty terminal report (--json / --github still emit)
+                      抑制漂亮终端报告；--json / --github 仍照常
+  --max-annotations <n>  Cap GitHub annotation lines (default: 20) · 限制注解条数
   --path <repo>       Repo root for install/uninstall (default: cwd)
   -h, --help          Show help
   -v, --version       Show version
@@ -38,16 +44,28 @@ Env
   VIBE / VIBE_COMMIT_VIBE   Default vibe when --vibe is omitted
   VIBE_COMMIT_HOOK_AI Set to 1 to allow AI inside the git hook (off by default)
 
+With --github, annotations go to stdout (or stderr when combined with --json) so
+PR Checks can surface the proposed commit title / body / staged files. Job outputs
+title/subject/type/scope/breaking/engine/findings are written when GITHUB_OUTPUT
+is set (findings = staged file count). A short Markdown job summary is appended when
+GITHUB_STEP_SUMMARY is set. --quiet hides the pretty report only.
+
+配合 --github 时注解走 stdout（与 --json 联用则走 stderr，保持 JSON 干净）。
+有 GITHUB_OUTPUT 时写入 title/subject 等字段；有 GITHUB_STEP_SUMMARY 时追加 Job Summary。
+--quiet 只隐藏漂亮终端报告。
+
 Git hook
   After \`vibe-commit install\`, plain \`git commit\` (no -m) fills an empty /
   comment-only message file with a vibe-commit proposal. Skips merge, squash,
   amend (source=commit), and any message that already has non-comment text.
 
-Examples
+Examples · 示例
   git add -p
   vibe-commit
   vibe-commit --vibe playful --commit
   vibe-commit --breaking --dry-run
+  vibe-commit --github --quiet --no-ai
+  vibe-commit --github --json --max-annotations 10
   git commit -m "$(vibe-commit --dry-run)"
   vibe-commit install
   vibe-commit uninstall --path ~/projects/app
@@ -71,6 +89,9 @@ export function parseArgs(
     vibe: defaultVibeFromEnv(env),
     noAi: false,
     json: false,
+    github: false,
+    quiet: false,
+    maxAnnotations: 20,
     help: false,
     version: false,
     breaking: false,
@@ -111,6 +132,21 @@ export function parseArgs(
     }
     if (arg === "--json") {
       options.json = true;
+      continue;
+    }
+    if (arg === "--github") {
+      options.github = true;
+      continue;
+    }
+    if (arg === "--quiet") {
+      options.quiet = true;
+      continue;
+    }
+    if (arg === "--max-annotations" || arg.startsWith("--max-annotations=")) {
+      const value = arg.includes("=")
+        ? arg.slice("--max-annotations=".length)
+        : argv[++i];
+      options.maxAnnotations = parseMaxAnnotations(value);
       continue;
     }
     if (arg === "--breaking") {
@@ -184,6 +220,16 @@ function parseCommand(value: string): CliCommand | null {
     default:
       return null;
   }
+}
+
+export function parseMaxAnnotations(value: string | undefined): number {
+  const raw = value?.trim();
+  if (!raw) throw new UsageError("Missing value for --max-annotations");
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1) {
+    throw new UsageError("--max-annotations must be a positive integer");
+  }
+  return n;
 }
 
 export function parseType(value: string | undefined): CommitType {

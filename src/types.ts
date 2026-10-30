@@ -74,6 +74,12 @@ export interface CliOptions {
   vibe: Vibe;
   noAi: boolean;
   json: boolean;
+  /** Emit GitHub Actions annotations / job outputs / step summary. */
+  github: boolean;
+  /** Suppress the pretty terminal report (--json / --github still emit). */
+  quiet: boolean;
+  /** Soft cap for --github annotation lines (default 20). */
+  maxAnnotations: number;
   help: boolean;
   version: boolean;
   /** Force breaking change marker and footer. */
