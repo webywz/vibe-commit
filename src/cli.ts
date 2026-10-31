@@ -74,7 +74,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     const htmlPath = typeof options.html === "string" ? options.html : undefined;
     const html =
       options.html !== undefined
-        ? formatHtml(diff, message, { vibe: options.vibe })
+        ? formatHtml(diff, message, { vibe: options.vibe, theme: options.theme })
         : undefined;
 
     if (options.github) {

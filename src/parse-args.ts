@@ -1,10 +1,14 @@
 import {
   COMMIT_TYPES,
+  DEFAULT_HTML_THEME,
+  HTML_THEMES,
   LOCALES,
   VIBES,
+  isHtmlTheme,
   type CliCommand,
   type CliOptions,
   type CommitType,
+  type HtmlTheme,
   type Locale,
   type Vibe,
 } from "./types.ts";
@@ -39,6 +43,8 @@ Options · 参数
                       机器可读提案（propose）或结果（init/install/uninstall）
   --html [path]       Self-contained HTML report (stdout, or write to path; offline, no CDN)
                       自包含 HTML 报告（stdout，或写入路径；离线，无 CDN）
+  --theme <name>      HTML palette: ember (default), fog, midnight, paper
+                      HTML 配色：ember（默认，与 0.1.27 相同）、fog、midnight、paper
   --github            Emit GitHub Actions annotations (::notice/warning/error)
                       输出 Actions 注解；有 GITHUB_OUTPUT / GITHUB_STEP_SUMMARY 时写输出与 Job Summary
   --quiet             Suppress the pretty terminal report (--json / --github still emit)
@@ -69,12 +75,14 @@ title/subject/type/scope/breaking/engine/findings/riskScore are written when GIT
 is set (findings = staged file count). A short Markdown job summary is appended when
 GITHUB_STEP_SUMMARY is set. --quiet hides the pretty report only.
 --html and --json cannot share stdout; pick one primary export.
+--theme only restyles --html (ember = 0.1.27 look). Pretty / JSON / GitHub / scoring unchanged.
 --fail-above runs after every report is emitted (json / github / html / quiet / out).
 
 配合 --github 时注解走 stdout（与 --json / --html 联用则走 stderr，保持 JSON 干净）。
 有 GITHUB_OUTPUT 时写入 title/subject 等字段；有 GITHUB_STEP_SUMMARY 时追加 Job Summary。
 --quiet 只隐藏漂亮终端报告。
 --html 与 --json 不能同时占用 stdout；二选一。
+--theme 只改 --html 配色（ember = 0.1.27 外观）。漂亮终端 / JSON / GitHub / 打分不变。
 --fail-above 在所有报告输出之后再判定（json / github / html / quiet / out）。
 
 Git hook
@@ -104,7 +112,8 @@ Examples · 示例
   vibe-commit --github --json --max-annotations 10
   vibe-commit --fail-above 70 --github --quiet --no-ai
   vibe-commit --html
-  vibe-commit --html report.html
+  vibe-commit --html --theme fog
+  vibe-commit --html report.html --theme midnight
   git commit -m "$(vibe-commit --dry-run)"
   vibe-commit init
   vibe-commit init --force
@@ -148,6 +157,7 @@ export function parseArgs(
     version: false,
     breaking: false,
     force: false,
+    theme: DEFAULT_HTML_THEME,
   };
 
   let i = 0;
@@ -254,6 +264,11 @@ export function parseArgs(
       options.failAbove = parseFailAbove(value);
       continue;
     }
+    if (arg === "--theme" || arg.startsWith("--theme=")) {
+      const value = arg.includes("=") ? arg.slice("--theme=".length) : argv[++i];
+      options.theme = parseTheme(value);
+      continue;
+    }
     if (arg === "--html") {
       const next = argv[i + 1];
       if (next && !next.startsWith("-")) {
@@ -325,6 +340,13 @@ export function parseArgs(
     throw new UsageError("--fail-above is only valid with propose (default command)");
   }
 
+  if (
+    options.theme !== DEFAULT_HTML_THEME &&
+    options.command !== "propose"
+  ) {
+    throw new UsageError("--theme is only valid with propose (default command)");
+  }
+
   return options;
 }
 
@@ -389,6 +411,17 @@ export function parseLocale(value: string | undefined): Locale {
     throw new UsageError(`Invalid --locale "${value}". Use: ${LOCALES.join(", ")}`);
   }
   return raw as Locale;
+}
+
+export function parseTheme(value: string | undefined): HtmlTheme {
+  const raw = value?.trim().toLowerCase();
+  if (!raw) throw new UsageError("Missing value for --theme");
+  if (!isHtmlTheme(raw)) {
+    throw new UsageError(
+      `Invalid --theme "${value}". Use: ${HTML_THEMES.join(", ")}`,
+    );
+  }
+  return raw;
 }
 
 export function sanitizeScope(value: string): string {
