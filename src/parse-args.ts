@@ -49,6 +49,8 @@ Options · 参数
                       强制覆盖已存在的钩子配置（仅 init）
   --out <file>        Write report (or JSON body with --json) to file (propose only)
                       写报告（或搭配 --json 写 JSON）到文件（仅 propose）
+  --fail-above <n>    CI gate: exit 1 when riskScore > n (0–100; omit = off; propose only)
+                      CI 门禁：风险分 > n 时以 1 退出（0–100；省略则关闭；仅 propose）
   -h, --help          Show help
   -v, --version       Show version
 
@@ -63,15 +65,17 @@ Env
 
 With --github, annotations go to stdout (or stderr when combined with --json / --html) so
 PR Checks can surface the proposed commit title / body / staged files. Job outputs
-title/subject/type/scope/breaking/engine/findings are written when GITHUB_OUTPUT
+title/subject/type/scope/breaking/engine/findings/riskScore are written when GITHUB_OUTPUT
 is set (findings = staged file count). A short Markdown job summary is appended when
 GITHUB_STEP_SUMMARY is set. --quiet hides the pretty report only.
 --html and --json cannot share stdout; pick one primary export.
+--fail-above runs after every report is emitted (json / github / html / quiet / out).
 
 配合 --github 时注解走 stdout（与 --json / --html 联用则走 stderr，保持 JSON 干净）。
 有 GITHUB_OUTPUT 时写入 title/subject 等字段；有 GITHUB_STEP_SUMMARY 时追加 Job Summary。
 --quiet 只隐藏漂亮终端报告。
 --html 与 --json 不能同时占用 stdout；二选一。
+--fail-above 在所有报告输出之后再判定（json / github / html / quiet / out）。
 
 Git hook
   After \`vibe-commit init\` or \`vibe-commit install\`, plain \`git commit\` (no -m)
@@ -98,6 +102,7 @@ Examples · 示例
   vibe-commit --breaking --dry-run
   vibe-commit --github --quiet --no-ai
   vibe-commit --github --json --max-annotations 10
+  vibe-commit --fail-above 70 --github --quiet --no-ai
   vibe-commit --html
   vibe-commit --html report.html
   git commit -m "$(vibe-commit --dry-run)"
@@ -242,6 +247,13 @@ export function parseArgs(
       options.out = value;
       continue;
     }
+    if (arg === "--fail-above" || arg.startsWith("--fail-above=")) {
+      const value = arg.includes("=")
+        ? arg.slice("--fail-above=".length)
+        : argv[++i];
+      options.failAbove = parseFailAbove(value);
+      continue;
+    }
     if (arg === "--html") {
       const next = argv[i + 1];
       if (next && !next.startsWith("-")) {
@@ -309,6 +321,10 @@ export function parseArgs(
     throw new UsageError("--html is only valid with propose (default command)");
   }
 
+  if (options.failAbove !== undefined && options.command !== "propose") {
+    throw new UsageError("--fail-above is only valid with propose (default command)");
+  }
+
   return options;
 }
 
@@ -322,6 +338,18 @@ function parseCommand(value: string): CliCommand | null {
     default:
       return null;
   }
+}
+
+export function parseFailAbove(value: string | undefined): number {
+  const raw = value?.trim();
+  if (!raw || !/^\d+$/.test(raw)) {
+    throw new UsageError("--fail-above requires an integer from 0 to 100");
+  }
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 0 || n > 100) {
+    throw new UsageError("--fail-above requires an integer from 0 to 100");
+  }
+  return n;
 }
 
 export function parseMaxAnnotations(value: string | undefined): number {

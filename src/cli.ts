@@ -21,6 +21,7 @@ import {
 import { helpText, parseArgs, UsageError } from "./parse-args.ts";
 import { proposeMessage } from "./propose.ts";
 import { renderError, renderProposal, renderVersion } from "./render.ts";
+import { exceedsFailAbove, failAboveMessage, riskScore } from "./score.ts";
 
 export async function main(argv = process.argv.slice(2)): Promise<number> {
   let options;
@@ -111,8 +112,10 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       }
     };
 
+    const score = riskScore(message);
+
     if (options.json) {
-      const jsonOutput = `${JSON.stringify({ ...message, formatted }, null, 2)}\n`;
+      const jsonOutput = `${JSON.stringify({ ...message, formatted, riskScore: score }, null, 2)}\n`;
       process.stdout.write(jsonOutput);
       if (!writeOut(jsonOutput)) return 1;
     } else if (htmlOnStdout && html !== undefined) {
@@ -169,6 +172,14 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
         const colors = options.noColor ? pc.createColors(false) : pc;
         process.stdout.write(`  ${colors.green("committed")}\n\n`);
       }
+    }
+
+    if (
+      options.failAbove !== undefined &&
+      exceedsFailAbove(score, options.failAbove)
+    ) {
+      process.stderr.write(`${failAboveMessage(score, options.failAbove)}\n`);
+      return 1;
     }
 
     return 0;

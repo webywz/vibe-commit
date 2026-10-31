@@ -46,6 +46,7 @@ vibe-commit --vibe playful --commit # write the commit
 vibe-commit --breaking --dry-run    # force ! + BREAKING CHANGE footer
 vibe-commit --dry-run               # print only (default; wins over --commit)
 vibe-commit --github --quiet --no-ai  # Actions annotations (CI)
+vibe-commit --fail-above 70 --github --quiet --no-ai  # CI gate: exit 1 if riskScore > 70
 vibe-commit --html                  # self-contained HTML report on stdout
 vibe-commit --html report.html      # write HTML to file (creates parent dirs)
 vibe-commit --out report.txt        # write report to file
@@ -73,6 +74,7 @@ vibe-commit install                 # install bare .git/hooks (legacy)
 | `--quiet` | Suppress the pretty terminal report; `--json` / `--github` still emit · 抑制漂亮终端报告 |
 | `--max-annotations <n>` | Cap `--github` annotation lines (default: 20; invalid → UsageError) · 限制注解条数 |
 | `--out <file>` | Write report (or JSON body with `--json`) to file (propose only) · 写报告（或搭配 `--json` 写 JSON）到文件（仅 propose） |
+| `--fail-above <n>` | Propose-only CI gate: after reports emit, exit 1 if `riskScore` **>** n (integer 0–100). Omit = off. Compatible with `--json` / `--github` / `--quiet` / `--html` / `--out` · 仅 propose：报告输出后再判定，风险分 **>** n 则以 1 退出（整数 0–100；省略则关闭） |
 | `init [--path] [--force] [--json]` | Auto-detect hook manager and install (husky → simple-git-hooks → bare .git/hooks) · 自动检测钩子管理器并安装 |
 | `install [--path] [--json]` | Install the prepare-commit-msg hook (bare .git/hooks) · 安装钩子（直接写 .git/hooks） |
 | `uninstall [--path] [--json]` | Remove the managed hook · 卸载钩子 |
@@ -253,7 +255,7 @@ vibe-commit --locale en --dry-run        # English subject: add/fix/update...
 }
 ```
 
-Both heuristic and AI engines respect the locale setting. The `--json` output includes a `locale` field.
+Both heuristic and AI engines respect the locale setting. The `--json` output includes a `locale` field. Propose `--json` also includes `riskScore` (0–100).
 
 启发式引擎和 AI 引擎都会遵循 locale 设置。`--json` 输出包含 `locale` 字段。
 
@@ -306,8 +308,8 @@ console.log(formatCommit(message));
    **破坏性变更**：删公开 `export`、主版本升级、diff 里已有 footer，或传 `--breaking`。强制 `--breaking` 时 footer 用 **subject**；启发式仍可用更具体的双语原因。干跑说明原因；`--json` 可带 `breakingReason`。
 5. Managed `prepare-commit-msg` hook via `install` / `uninstall`.
    通过 `install` / `uninstall` 管理 `prepare-commit-msg` 钩子。
-6. **GitHub Actions** mode: `--github` emits Checks annotations; optional `--quiet` / `--max-annotations`; writes job outputs + step summary when `GITHUB_OUTPUT` / `GITHUB_STEP_SUMMARY` are set. See [`examples/github-actions.yml`](./examples/github-actions.yml).
-   **GitHub Actions** 模式：`--github` 输出 Checks 注解；可选 `--quiet` / `--max-annotations`；环境变量存在时写 Job 输出与 Summary。示例见 [`examples/github-actions.yml`](./examples/github-actions.yml)。
+6. **GitHub Actions** mode: `--github` emits Checks annotations; optional `--quiet` / `--max-annotations`; writes job outputs + step summary when `GITHUB_OUTPUT` / `GITHUB_STEP_SUMMARY` are set. Optional `--fail-above <n>` exits 1 after those outputs when `riskScore` > n (`breaking` = 100, `fix` = 70, `feat`/`perf`/`refactor` = 45, other types = 15). See [`examples/github-actions.yml`](./examples/github-actions.yml).
+   **GitHub Actions** 模式：`--github` 输出 Checks 注解；可选 `--quiet` / `--max-annotations`；环境变量存在时写 Job 输出与 Summary。可选 `--fail-above <n>` 在输出之后若 `riskScore` > n 则以 1 退出（`breaking` = 100，`fix` = 70，`feat`/`perf`/`refactor` = 45，其余类型 = 15）。示例见 [`examples/github-actions.yml`](./examples/github-actions.yml)。
 7. **HTML report**: `--html [path]` writes a self-contained offline page (proposed message, vibe/heuristic signals, file summary, confidence / tips). No CDN, no external CSS/JS/fonts. Omit path → stdout; give a path → write the file (parent dirs created). Mutually exclusive with `--json`. Combined with `--github` on stdout, annotations go to stderr so the HTML stays parseable.
    **HTML 报告**：`--html [path]` 写出离线自包含页面（提案、vibe/启发式信号、文件摘要、把握 / 提示）。无 CDN、无外部 CSS/JS/字体。省略路径 → stdout；给出路径 → 写文件（自动创建父目录）。与 `--json` 互斥。与 `--github` 联用且 HTML 走 stdout 时，注解改走 stderr，保持 HTML 可解析。
 

@@ -343,3 +343,42 @@ describe("parseArgs --no-color", () => {
     assert.match(help, /NO_COLOR/);
   });
 });
+
+describe("parseArgs --fail-above", () => {
+  it("defaults to off (undefined)", () => {
+    assert.equal(parseArgs([], {}).failAbove, undefined);
+  });
+
+  it("parses space and equals forms including bounds", () => {
+    assert.equal(parseArgs(["--fail-above", "0"], {}).failAbove, 0);
+    assert.equal(parseArgs(["--fail-above", "70"], {}).failAbove, 70);
+    assert.equal(parseArgs(["--fail-above=100"], {}).failAbove, 100);
+  });
+
+  it("rejects bad --fail-above values", () => {
+    assert.throws(() => parseArgs(["--fail-above"], {}), UsageError);
+    assert.throws(() => parseArgs(["--fail-above="], {}), UsageError);
+    assert.throws(() => parseArgs(["--fail-above", "nope"], {}), UsageError);
+    assert.throws(() => parseArgs(["--fail-above", "1.5"], {}), UsageError);
+    assert.throws(() => parseArgs(["--fail-above", "-1"], {}), UsageError);
+    assert.throws(() => parseArgs(["--fail-above", "101"], {}), UsageError);
+  });
+
+  it("rejects --fail-above with non-propose commands", () => {
+    assert.throws(() => parseArgs(["init", "--fail-above", "50"], {}), UsageError);
+    assert.throws(() => parseArgs(["install", "--fail-above", "50"], {}), UsageError);
+    assert.throws(() => parseArgs(["uninstall", "--fail-above", "50"], {}), UsageError);
+  });
+
+  it("allows --fail-above with default propose command", () => {
+    const options = parseArgs(["--fail-above", "70", "--no-ai"], {});
+    assert.equal(options.command, "propose");
+    assert.equal(options.failAbove, 70);
+  });
+
+  it("documents --fail-above in help", () => {
+    const help = helpText();
+    assert.match(help, /--fail-above/);
+    assert.match(help, /riskScore/);
+  });
+});

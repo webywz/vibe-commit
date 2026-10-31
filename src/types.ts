@@ -105,4 +105,9 @@ export interface CliOptions {
   out?: string;
   /** `true` = HTML on stdout; string = write that path. */
   html?: string | true;
+  /**
+   * Exit 1 on propose when riskScore > n (0–100).
+   * Omitted = never gate (default off).
+   */
+  failAbove?: number;
 }
