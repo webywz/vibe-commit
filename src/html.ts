@@ -1,12 +1,17 @@
 import { formatCommit } from "./format.ts";
 import { classifyPath } from "./heuristic.ts";
-import type {
-  Locale,
-  ProposedMessage,
-  StagedDiff,
-  StagedFile,
-  Vibe,
+import {
+  DEFAULT_HTML_THEME,
+  type HtmlTheme,
+  type Locale,
+  type ProposedMessage,
+  type StagedDiff,
+  type StagedFile,
+  type Vibe,
 } from "./types.ts";
+
+export { DEFAULT_HTML_THEME, HTML_THEMES, isHtmlTheme } from "./types.ts";
+export type { HtmlTheme } from "./types.ts";
 
 /** Escape text for safe insertion into HTML text/attr contexts. */
 export function escapeHtml(text: string): string {
@@ -20,7 +25,111 @@ export function escapeHtml(text: string): string {
 
 export interface HtmlFormatOptions {
   vibe?: Vibe;
+  /** HTML palette only; default `ember` (= 0.1.27 look). */
+  theme?: HtmlTheme;
 }
+
+/** CSS custom properties for each HTML palette. `ember` matches 0.1.27 exactly. */
+export const THEME_TOKENS: Record<HtmlTheme, Record<string, string>> = {
+  ember: {
+    "--bg": "#1a1b26",
+    "--bg-deep": "#16161e",
+    "--panel": "#1f2335",
+    "--border": "#3b4261",
+    "--text": "#c0caf5",
+    "--muted": "#565f89",
+    "--blue": "#7aa2f7",
+    "--cyan": "#7dcfff",
+    "--green": "#9ece6a",
+    "--orange": "#ff9e64",
+    "--red": "#f7768e",
+    "--yellow": "#e0af68",
+    "--purple": "#bb9af7",
+    "--font":
+      'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+  },
+  fog: {
+    "--bg": "#e8eef4",
+    "--bg-deep": "#f7f9fc",
+    "--panel": "#dce4ee",
+    "--border": "#b4c0d0",
+    "--text": "#243044",
+    "--muted": "#6b7a8d",
+    "--blue": "#3d6cb3",
+    "--cyan": "#2a8a9a",
+    "--green": "#3d8a5a",
+    "--orange": "#c46a2d",
+    "--red": "#c0455a",
+    "--yellow": "#a07a20",
+    "--purple": "#6b5a9a",
+    "--font":
+      'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+    "--text-soft": "#4a5a6e",
+    "--hot-border": "#e0b4bc",
+    "--ok-border": "#b4d4be",
+    "--mid-border": "#d4c8a0",
+  },
+  midnight: {
+    "--bg": "#0b0d14",
+    "--bg-deep": "#07080c",
+    "--panel": "#12141c",
+    "--border": "#2a3040",
+    "--text": "#d4dce8",
+    "--muted": "#6a7388",
+    "--blue": "#6ea8ff",
+    "--cyan": "#5eead4",
+    "--green": "#4ade80",
+    "--orange": "#fb923c",
+    "--red": "#fb7185",
+    "--yellow": "#fbbf24",
+    "--purple": "#c084fc",
+    "--font":
+      'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+    "--text-soft": "#9aa8bc",
+    "--hot-border": "#4a1a24",
+    "--ok-border": "#1a3a28",
+    "--mid-border": "#3a3020",
+  },
+  paper: {
+    "--bg": "#f6f0e4",
+    "--bg-deep": "#fffaf0",
+    "--panel": "#efe6d4",
+    "--border": "#d4c4a8",
+    "--text": "#3a2f22",
+    "--muted": "#8a7a64",
+    "--blue": "#3d6a8a",
+    "--cyan": "#2d7a7a",
+    "--green": "#4a7a40",
+    "--orange": "#c46a28",
+    "--red": "#b04040",
+    "--yellow": "#a07820",
+    "--purple": "#7a4a7a",
+    "--font":
+      'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+    "--text-soft": "#5a4e3c",
+    "--hot-border": "#e0b8b0",
+    "--ok-border": "#c0d4b0",
+    "--mid-border": "#dcc8a0",
+  },
+};
+
+function themeRootCss(theme: HtmlTheme): string {
+  const tokens = THEME_TOKENS[theme];
+  const lines = Object.entries(tokens).map(
+    ([key, value]) => `  ${key}: ${value};`,
+  );
+  return `:root {\n${lines.join("\n")}\n}`;
+}
+
+/** Remap leftover 0.1.27 hex literals so non-ember palettes stay readable. */
+const THEME_OVERRIDES = `
+.chip.hot { border-color: var(--hot-border); }
+.chip.tone-ok { border-color: var(--ok-border); }
+.chip.tone-mid { border-color: var(--mid-border); }
+.chip.tone-hot { border-color: var(--hot-border); }
+.body, .reason { color: var(--text-soft); }
+.bullets { color: var(--text-soft); }
+`;
 
 const LABELS = {
   en: {
@@ -168,23 +277,7 @@ function tipsFor(
   return tips;
 }
 
-const PAGE_CSS = `:root {
-  --bg: #1a1b26;
-  --bg-deep: #16161e;
-  --panel: #1f2335;
-  --border: #3b4261;
-  --text: #c0caf5;
-  --muted: #565f89;
-  --blue: #7aa2f7;
-  --cyan: #7dcfff;
-  --green: #9ece6a;
-  --orange: #ff9e64;
-  --red: #f7768e;
-  --yellow: #e0af68;
-  --purple: #bb9af7;
-  --font: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-}
-* { box-sizing: border-box; }
+const PAGE_CSS = `* { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
   background: var(--bg); color: var(--text);
@@ -263,6 +356,8 @@ export function formatHtml(
   const locale = message.locale ?? "en";
   const strings = labelsFor(locale);
   const vibe = options.vibe ?? "pro";
+  const theme = options.theme ?? DEFAULT_HTML_THEME;
+  const themeOverrides = theme === "ember" ? "" : THEME_OVERRIDES;
   const formatted = formatCommit(message);
   const headline = formatted.split("\n")[0] ?? formatted;
   const totals = totalsOf(diff);
@@ -294,8 +389,9 @@ export function formatHtml(
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
 <style>
+${themeRootCss(theme)}
 ${PAGE_CSS}
-</style>
+${themeOverrides}</style>
 </head>
 <body>
 <header class="top">

@@ -12,8 +12,17 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { escapeHtml, formatHtml } from "../src/html.ts";
-import type { ProposedMessage } from "../src/types.ts";
+import {
+  escapeHtml,
+  formatHtml,
+  THEME_TOKENS,
+} from "../src/html.ts";
+import {
+  DEFAULT_HTML_THEME,
+  HTML_THEMES,
+  type HtmlTheme,
+  type ProposedMessage,
+} from "../src/types.ts";
 import { stagedDiff, stagedFile } from "./helpers.ts";
 
 const HOSTILE = `<img src=x onerror="alert(1)"> & studies show <script>alert("x")</script>`;
@@ -66,6 +75,47 @@ describe("escapeHtml / formatHtml", () => {
     assert.match(html, /&lt;img src=x/);
     assert.match(html, /onerror=/);
     assert.doesNotMatch(html, /\sonerror="/i);
+  });
+
+  it("default theme matches ember CSS (0.1.27 look)", () => {
+    const omitted = formatHtml(sampleDiff(), sampleProposal(), { vibe: "pro" });
+    const ember = formatHtml(sampleDiff(), sampleProposal(), {
+      vibe: "pro",
+      theme: "ember",
+    });
+    assert.equal(omitted, ember);
+    assert.match(omitted, /--bg: #1a1b26;/);
+    assert.match(omitted, /border-color: #5a1d1d;/);
+    assert.match(omitted, /color: #a9b1d6;/);
+    assert.doesNotMatch(omitted, /var\(--hot-border\)/);
+    assert.doesNotMatch(omitted, /var\(--text-soft\)/);
+  });
+
+  it("each HTML theme has a distinct palette", () => {
+    const css: Record<HtmlTheme, string> = {
+      ember: formatHtml(sampleDiff(), sampleProposal(), { theme: "ember" }),
+      fog: formatHtml(sampleDiff(), sampleProposal(), { theme: "fog" }),
+      midnight: formatHtml(sampleDiff(), sampleProposal(), { theme: "midnight" }),
+      paper: formatHtml(sampleDiff(), sampleProposal(), { theme: "paper" }),
+    };
+    const bgs = HTML_THEMES.map((name) => THEME_TOKENS[name]["--bg"]);
+    assert.equal(new Set(bgs).size, HTML_THEMES.length);
+    assert.equal(DEFAULT_HTML_THEME, "ember");
+    for (const name of HTML_THEMES) {
+      assert.match(css[name], new RegExp(`--bg: ${THEME_TOKENS[name]["--bg"]};`));
+      assert.doesNotMatch(css[name], CDN);
+      assert.doesNotMatch(css[name], /<script[\s>]/i);
+      assert.doesNotMatch(css[name], /<link\s/i);
+    }
+    assert.match(css.fog, /var\(--text-soft\)/);
+    assert.match(css.midnight, /var\(--hot-border\)/);
+    assert.match(css.paper, /var\(--ok-border\)/);
+    assert.notEqual(css.ember, css.fog);
+    assert.notEqual(css.ember, css.midnight);
+    assert.notEqual(css.ember, css.paper);
+    assert.notEqual(css.fog, css.midnight);
+    assert.notEqual(css.fog, css.paper);
+    assert.notEqual(css.midnight, css.paper);
   });
 
   it("uses zh labels when locale is zh", () => {
@@ -148,6 +198,90 @@ describe("--html CLI", () => {
     assert.match(help.stdout, /--html \[path\]/);
     assert.match(help.stdout, /Self-contained HTML report/);
     assert.match(help.stdout, /--html and --json cannot share stdout/);
+    assert.match(help.stdout, /--theme <name>/);
+    assert.match(help.stdout, /ember \(default\)/);
+    assert.match(help.stdout, /fog/);
+    assert.match(help.stdout, /midnight/);
+    assert.match(help.stdout, /paper/);
+  });
+
+  it("defaults to ember CSS and accepts --theme ember", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const omitted = run(cwd, ["--no-ai", "--html"]);
+    const ember = run(cwd, ["--no-ai", "--html", "--theme", "ember"]);
+    assert.equal(omitted.status, 0, omitted.stderr);
+    assert.equal(ember.status, 0, ember.stderr);
+    assert.equal(omitted.stdout, ember.stdout);
+    assert.match(omitted.stdout, /--bg: #1a1b26;/);
+  });
+
+  it("applies each --theme palette on stdout", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const seen = new Set<string>();
+    for (const name of HTML_THEMES) {
+      const result = run(cwd, ["--no-ai", "--html", "--theme", name]);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /<!DOCTYPE html>/i);
+      assert.match(
+        result.stdout,
+        new RegExp(`--bg: ${THEME_TOKENS[name]["--bg"]};`),
+      );
+      assert.doesNotMatch(result.stdout, CDN);
+      seen.add(THEME_TOKENS[name]["--bg"]!);
+    }
+    assert.equal(seen.size, HTML_THEMES.length);
+  });
+
+  it("rejects an invalid --theme with UsageError", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const result = run(cwd, ["--no-ai", "--html", "--theme", "solar"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Invalid --theme/);
+    assert.match(result.stderr, /ember, fog, midnight, paper/);
+    assert.doesNotMatch(result.stdout, /<!DOCTYPE html>/i);
+  });
+
+  it("keeps --theme with --fail-above, --github, and --quiet", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const result = run(cwd, [
+      "--no-ai",
+      "--html",
+      "--theme",
+      "fog",
+      "--github",
+      "--quiet",
+      "--fail-above",
+      "100",
+    ]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /<!DOCTYPE html>/i);
+    assert.match(result.stdout, /--bg: #e8eef4;/);
+    assert.match(result.stderr, /::(error|warning|notice) /);
+    assert.doesNotMatch(result.stdout, /::(error|warning|notice) /);
+    assert.doesNotMatch(result.stdout, /next {2}vibe-commit --commit/);
+    assert.doesNotMatch(result.stderr, /exceeds --fail-above/);
+  });
+
+  it("still gates after themed HTML when --fail-above is exceeded", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const result = run(cwd, [
+      "--no-ai",
+      "--html",
+      "--theme",
+      "paper",
+      "--quiet",
+      "--fail-above",
+      "40",
+    ]);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /<!DOCTYPE html>/i);
+    assert.match(result.stdout, /--bg: #f6f0e4;/);
+    assert.match(result.stderr, /risk score 45 exceeds --fail-above 40/);
   });
 
   it("prints HTML to stdout when path is omitted", () => {

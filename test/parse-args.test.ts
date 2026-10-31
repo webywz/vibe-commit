@@ -38,6 +38,7 @@ describe("parseArgs", () => {
     assert.equal(options.quiet, false);
     assert.equal(options.maxAnnotations, 20);
     assert.equal(options.noColor, false);
+    assert.equal(options.theme, "ember");
   });
 
   it("parses long flags and equals syntax", () => {
@@ -341,6 +342,84 @@ describe("parseArgs --no-color", () => {
     const help = helpText();
     assert.match(help, /--no-color/);
     assert.match(help, /NO_COLOR/);
+  });
+});
+
+describe("parseArgs --theme", () => {
+  it("defaults to ember", () => {
+    assert.equal(parseArgs([], {}).theme, "ember");
+    assert.equal(parseArgs(["--html"], {}).theme, "ember");
+  });
+
+  it("parses space and equals forms", () => {
+    assert.equal(parseArgs(["--theme", "fog"], {}).theme, "fog");
+    assert.equal(parseArgs(["--theme=midnight"], {}).theme, "midnight");
+    assert.equal(parseArgs(["--theme", "paper", "--html"], {}).theme, "paper");
+    assert.equal(parseArgs(["--theme", "EMBER"], {}).theme, "ember");
+  });
+
+  it("rejects invalid and missing --theme", () => {
+    assert.throws(
+      () => parseArgs(["--theme", "solar"], {}),
+      (error: unknown) =>
+        error instanceof UsageError &&
+        /Invalid --theme/.test(error.message) &&
+        /ember, fog, midnight, paper/.test(error.message),
+    );
+    assert.throws(() => parseArgs(["--theme"], {}), UsageError);
+    assert.throws(() => parseArgs(["--theme="], {}), UsageError);
+    assert.throws(() => parseArgs(["--theme", ""], {}), UsageError);
+  });
+
+  it("rejects --theme with non-propose commands", () => {
+    assert.throws(() => parseArgs(["init", "--theme", "fog"], {}), UsageError);
+    assert.throws(
+      () => parseArgs(["install", "--theme", "paper"], {}),
+      UsageError,
+    );
+    assert.throws(
+      () => parseArgs(["uninstall", "--theme", "midnight"], {}),
+      UsageError,
+    );
+  });
+
+  it("allows --theme with --html, --fail-above, --github, --quiet", () => {
+    const options = parseArgs(
+      [
+        "--html",
+        "--theme",
+        "fog",
+        "--fail-above",
+        "70",
+        "--github",
+        "--quiet",
+        "--no-ai",
+      ],
+      {},
+    );
+    assert.equal(options.command, "propose");
+    assert.equal(options.html, true);
+    assert.equal(options.theme, "fog");
+    assert.equal(options.failAbove, 70);
+    assert.equal(options.github, true);
+    assert.equal(options.quiet, true);
+  });
+
+  it("still rejects --html together with --json when --theme is set", () => {
+    assert.throws(
+      () => parseArgs(["--html", "--theme", "fog", "--json"], {}),
+      UsageError,
+    );
+  });
+
+  it("documents --theme in help", () => {
+    const help = helpText();
+    assert.match(help, /--theme <name>/);
+    assert.match(help, /ember \(default\)/);
+    assert.match(help, /fog/);
+    assert.match(help, /midnight/);
+    assert.match(help, /paper/);
+    assert.match(help, /--theme only restyles --html/);
   });
 });
 
