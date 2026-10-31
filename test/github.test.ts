@@ -110,6 +110,7 @@ describe("github annotations", () => {
       assert.match(body, /^breaking=false$/m);
       assert.match(body, /^engine=heuristic$/m);
       assert.match(body, /^findings=1$/m);
+      assert.match(body, /^riskScore=45$/m);
     } finally {
       if (prev === undefined) delete process.env.GITHUB_OUTPUT;
       else process.env.GITHUB_OUTPUT = prev;
@@ -121,6 +122,8 @@ describe("github annotations", () => {
     const md = formatGitHubStepSummary(sampleProposal(), sampleDiff());
     assert.match(md, /## vibe-commit/);
     assert.match(md, /\*\*Title\*\*/);
+    assert.match(md, /\*\*Risk\*\*/);
+    assert.match(md, /45 \/ 100/);
     assert.match(md, /Staged files|src\/auth\.ts/);
   });
 

@@ -1,5 +1,6 @@
 import { appendFileSync } from "node:fs";
 import { formatCommit } from "./format.ts";
+import { riskScore } from "./score.ts";
 import type { CommitType, ProposedMessage, StagedDiff } from "./types.ts";
 
 export interface GitHubFormatOptions {
@@ -163,6 +164,7 @@ export function appendGitHubJobOutput(
     `breaking=${proposal.breaking}`,
     `engine=${proposal.engine}`,
     `findings=${diff.files.length}`,
+    `riskScore=${riskScore(proposal)}`,
   ].join("\n");
   appendFileSync(path, `${body}\n`, "utf8");
 }
@@ -188,6 +190,7 @@ export function formatGitHubStepSummary(
     `| **Title** | ${headerLine(proposal)} |`,
     `| **Type** | \`${proposal.type}\`${proposal.scope ? ` (\`${proposal.scope}\`)` : ""} |`,
     `| **Breaking** | ${proposal.breaking} |`,
+    `| **Risk** | ${riskScore(proposal)} / 100 |`,
     `| **Engine** | ${proposal.engine} |`,
     `| **Files** | ${diff.files.length} (+${totals.add} / −${totals.del}) staged |`,
     "",
