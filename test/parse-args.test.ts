@@ -396,6 +396,9 @@ describe("parseArgs --theme", () => {
     assert.equal(parseArgs(["--theme=midnight"], {}).theme, "midnight");
     assert.equal(parseArgs(["--theme", "paper", "--html"], {}).theme, "paper");
     assert.equal(parseArgs(["--theme", "EMBER"], {}).theme, "ember");
+    assert.equal(parseArgs(["--theme", "aurora"], {}).theme, "aurora");
+    assert.equal(parseArgs(["--theme", "AURORA"], {}).theme, "aurora");
+    assert.equal(parseArgs(["--theme=aurora", "--html"], {}).theme, "aurora");
   });
 
   it("rejects invalid and missing --theme", () => {
@@ -404,7 +407,7 @@ describe("parseArgs --theme", () => {
       (error: unknown) =>
         error instanceof UsageError &&
         /Invalid --theme/.test(error.message) &&
-        /ember, fog, midnight, paper/.test(error.message),
+        /ember, fog, midnight, paper, aurora/.test(error.message),
     );
     assert.throws(() => parseArgs(["--theme"], {}), UsageError);
     assert.throws(() => parseArgs(["--theme="], {}), UsageError);
@@ -459,6 +462,7 @@ describe("parseArgs --theme", () => {
     assert.match(help, /fog/);
     assert.match(help, /midnight/);
     assert.match(help, /paper/);
+    assert.match(help, /aurora/);
     assert.match(help, /--theme only restyles --html/);
   });
 });

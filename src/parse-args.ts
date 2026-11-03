@@ -43,8 +43,8 @@ Options · 参数
                       机器可读提案（propose）或结果（init/install/uninstall）
   --html [path]       Self-contained HTML report (stdout, or write to path; offline, no CDN)
                       自包含 HTML 报告（stdout，或写入路径；离线，无 CDN）
-  --theme <name>      HTML palette: ember (default), fog, midnight, paper
-                      HTML 配色：ember（默认，与 0.1.27 相同）、fog、midnight、paper
+  --theme <name>      HTML palette: ember (default), fog, midnight, paper, aurora
+                      HTML 配色：ember（默认，与 0.1.27 相同）、fog、midnight、paper、aurora
   --github            Emit GitHub Actions annotations (::notice/warning/error)
                       输出 Actions 注解；有 GITHUB_OUTPUT / GITHUB_STEP_SUMMARY 时写输出与 Job Summary
   --quiet             Suppress the pretty terminal report (--json / --github still emit)
@@ -119,6 +119,7 @@ Examples · 示例
   vibe-commit --fail-above 70 --github --quiet --no-ai
   vibe-commit --html
   vibe-commit --html --theme fog
+  vibe-commit --html --theme aurora
   vibe-commit --html report.html --theme midnight
   vibe-commit --copy
   vibe-commit --json --copy --quiet --no-ai
