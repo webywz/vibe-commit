@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
+import { GitError } from "../src/git.ts";
 import {
   HOOK_BEGIN,
   HOOK_END,
@@ -22,8 +23,6 @@ import {
   runPrepareCommitMsg,
   shouldSkipPrepareCommitMsg,
   uninstallHook,
-  detectHookManager,
-  initHook,
 } from "../src/hook.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -146,7 +145,7 @@ describe("install / uninstall", () => {
     chmodSync(foreign, 0o755);
 
     const command = resolveInstallCommand(cli, tsxBin);
-    const installed = installHook(cwd, command);
+    const installed = installHook(cwd, command, { force: true });
     assert.equal(installed.backedUp, true);
     assert.equal(existsSync(join(hooksDir, "prepare-commit-msg.vibe-backup")), true);
     const body = readFileSync(installed.hookPath, "utf8");
@@ -173,6 +172,185 @@ describe("install / uninstall", () => {
     const uninstall = runCli(cwd, ["uninstall", "--path", cwd]);
     assert.equal(uninstall.status, 0, uninstall.stderr);
     assert.match(uninstall.stdout, /removed|skip/i);
+  });
+
+  it("refuses a foreign hook on install without --force", () => {
+    const cwd = makeRepo();
+    const hooksDir = join(cwd, ".git", "hooks");
+    mkdirSync(hooksDir, { recursive: true });
+    const foreign = join(hooksDir, "prepare-commit-msg");
+    writeFileSync(foreign, "#!/bin/sh\necho foreign-hook\n", { mode: 0o755 });
+    chmodSync(foreign, 0o755);
+
+    const command = resolveInstallCommand(cli, tsxBin);
+    assert.throws(() => installHook(cwd, command), GitError);
+    assert.match(readFileSync(foreign, "utf8"), /foreign-hook/);
+
+    const result = runCli(cwd, ["install"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /already exists/i);
+    assert.match(result.stderr, /--force/i);
+    assert.match(readFileSync(foreign, "utf8"), /foreign-hook/);
+    assert.equal(existsSync(join(hooksDir, "prepare-commit-msg.vibe-backup")), false);
+  });
+
+  it("overwrites a foreign hook on install --force and uninstall restores it", () => {
+    const cwd = makeRepo();
+    const hooksDir = join(cwd, ".git", "hooks");
+    mkdirSync(hooksDir, { recursive: true });
+    const foreign = join(hooksDir, "prepare-commit-msg");
+    writeFileSync(foreign, "#!/bin/sh\necho foreign-hook\n", { mode: 0o755 });
+    chmodSync(foreign, 0o755);
+
+    const install = runCli(cwd, ["install", "--force"]);
+    assert.equal(install.status, 0, install.stderr);
+    assert.match(install.stdout, /backed up/i);
+    const backup = join(hooksDir, "prepare-commit-msg.vibe-backup");
+    assert.equal(existsSync(backup), true);
+    assert.match(readFileSync(backup, "utf8"), /foreign-hook/);
+    assert.match(readFileSync(foreign, "utf8"), new RegExp(HOOK_BEGIN));
+
+    const uninstall = runCli(cwd, ["uninstall"]);
+    assert.equal(uninstall.status, 0, uninstall.stderr);
+    assert.match(uninstall.stdout, /restored/i);
+    assert.match(readFileSync(foreign, "utf8"), /foreign-hook/);
+    assert.equal(existsSync(backup), false);
+  });
+
+  it("skips unmanaged hook on uninstall without --force", () => {
+    const cwd = makeRepo();
+    const hooksDir = join(cwd, ".git", "hooks");
+    mkdirSync(hooksDir, { recursive: true });
+    const foreign = join(hooksDir, "prepare-commit-msg");
+    writeFileSync(foreign, "#!/bin/sh\necho foreign-hook\n", { mode: 0o755 });
+    chmodSync(foreign, 0o755);
+
+    const result = runCli(cwd, ["uninstall"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /skip/i);
+    assert.equal(existsSync(foreign), true);
+    assert.match(readFileSync(foreign, "utf8"), /foreign-hook/);
+  });
+
+  it("removes unmanaged hook on uninstall --force", () => {
+    const cwd = makeRepo();
+    const hooksDir = join(cwd, ".git", "hooks");
+    mkdirSync(hooksDir, { recursive: true });
+    const foreign = join(hooksDir, "prepare-commit-msg");
+    writeFileSync(foreign, "#!/bin/sh\necho foreign-hook\n", { mode: 0o755 });
+    chmodSync(foreign, 0o755);
+
+    const result = runCli(cwd, ["uninstall", "--force"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /removed/i);
+    assert.equal(existsSync(foreign), false);
+  });
+
+  it("install --force on husky backs up a foreign hook; uninstall restores it", () => {
+    const cwd = makeRepo();
+    const huskyDir = join(cwd, ".husky");
+    mkdirSync(huskyDir, { recursive: true });
+    const hookPath = join(huskyDir, "prepare-commit-msg");
+    writeFileSync(hookPath, "#!/bin/sh\necho husky-foreign\n", { mode: 0o755 });
+    chmodSync(hookPath, 0o755);
+
+    const refused = runCli(cwd, ["install"]);
+    assert.equal(refused.status, 1);
+    assert.match(refused.stderr, /already exists/i);
+    assert.match(readFileSync(hookPath, "utf8"), /husky-foreign/);
+
+    const forced = runCli(cwd, ["install", "--force"]);
+    assert.equal(forced.status, 0, forced.stderr);
+    const backup = join(huskyDir, "prepare-commit-msg.vibe-backup");
+    assert.equal(existsSync(backup), true);
+    assert.match(readFileSync(backup, "utf8"), /husky-foreign/);
+    assert.match(readFileSync(hookPath, "utf8"), new RegExp(HOOK_BEGIN));
+
+    const uninstall = runCli(cwd, ["uninstall"]);
+    assert.equal(uninstall.status, 0, uninstall.stderr);
+    assert.match(readFileSync(hookPath, "utf8"), /husky-foreign/);
+  });
+
+  it("install refuses foreign simple-git-hooks without --force and overwrites with it", () => {
+    const cwd = makeRepo();
+    writeFileSync(
+      join(cwd, "package.json"),
+      JSON.stringify({
+        "simple-git-hooks": {
+          "prepare-commit-msg": "echo existing",
+        },
+        devDependencies: { "simple-git-hooks": "^2.9.0" },
+      }),
+    );
+
+    const refused = runCli(cwd, ["install"]);
+    assert.equal(refused.status, 1);
+    assert.match(refused.stderr, /already has/i);
+    assert.match(refused.stderr, /--force/i);
+
+    const forced = runCli(cwd, ["install", "--force"]);
+    assert.equal(forced.status, 0, forced.stderr);
+    const pkg = JSON.parse(readFileSync(join(cwd, "package.json"), "utf8")) as {
+      "simple-git-hooks"?: Record<string, string>;
+    };
+    assert.match(
+      pkg["simple-git-hooks"]!["prepare-commit-msg"],
+      /prepare-commit-msg/,
+    );
+  });
+
+  it("updates managed simple-git-hooks without --force", () => {
+    const cwd = makeRepo();
+    const command = resolveInstallCommand(cli, tsxBin);
+    writeFileSync(
+      join(cwd, "package.json"),
+      JSON.stringify({
+        "simple-git-hooks": {
+          "prepare-commit-msg": `${command.execPath} ${command.cliPath} prepare-commit-msg "$1" "$2" || true`,
+        },
+        devDependencies: { "simple-git-hooks": "^2.9.0" },
+      }),
+    );
+
+    const result = runCli(cwd, ["install"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /updated|installed/i);
+    const pkg = JSON.parse(readFileSync(join(cwd, "package.json"), "utf8")) as {
+      "simple-git-hooks"?: Record<string, string>;
+    };
+    assert.match(
+      pkg["simple-git-hooks"]!["prepare-commit-msg"],
+      /prepare-commit-msg/,
+    );
+  });
+
+  it("uninstall removes managed simple-git-hooks; --force drops a foreign entry", () => {
+    const cwd = makeRepo();
+    writeFileSync(
+      join(cwd, "package.json"),
+      JSON.stringify({
+        "simple-git-hooks": {
+          "prepare-commit-msg": "echo existing",
+        },
+        devDependencies: { "simple-git-hooks": "^2.9.0" },
+      }),
+    );
+
+    const skipped = runCli(cwd, ["uninstall"]);
+    assert.equal(skipped.status, 0, skipped.stderr);
+    assert.match(skipped.stdout, /skip/i);
+    const still = JSON.parse(readFileSync(join(cwd, "package.json"), "utf8")) as {
+      "simple-git-hooks"?: Record<string, string>;
+    };
+    assert.equal(still["simple-git-hooks"]?.["prepare-commit-msg"], "echo existing");
+
+    const forced = runCli(cwd, ["uninstall", "--force"]);
+    assert.equal(forced.status, 0, forced.stderr);
+    assert.match(forced.stdout, /removed/i);
+    const pkg = JSON.parse(readFileSync(join(cwd, "package.json"), "utf8")) as {
+      "simple-git-hooks"?: Record<string, string>;
+    };
+    assert.equal(pkg["simple-git-hooks"]?.["prepare-commit-msg"], undefined);
   });
 });
 

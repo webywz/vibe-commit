@@ -102,7 +102,7 @@ export interface CliOptions {
   version: boolean;
   /** Force breaking change marker and footer. */
   breaking: boolean;
-  /** Force overwrite when init target already exists. */
+  /** Force overwrite/remove existing hook/config (init/install/uninstall). */
   force: boolean;
   /** Target repo for install/uninstall/init (default: cwd). */
   path?: string;
