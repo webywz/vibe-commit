@@ -19,6 +19,8 @@ const HELP = `vibe-commit — stylish conventional commits, offline-first
 
 Usage · 用法
   vibe-commit [options]
+  vibe-commit --list-themes
+  vibe-commit --list-themes --json
   vibe-commit init [--path <repo>] [--force] [--json]
   vibe-commit install [--path <repo>] [--force] [--json]
   vibe-commit uninstall [--path <repo>] [--force] [--json]
@@ -39,12 +41,14 @@ Options · 参数
   --no-ai             Skip AI even if OPENAI_API_KEY is set
   --no-color          Disable ANSI colors in human-readable output
   --breaking          Force ! + BREAKING CHANGE footer (text = subject)
-  --json              Print a machine-readable proposal (propose) or result (init/install/uninstall)
-                      机器可读提案（propose）或结果（init/install/uninstall）
+  --json              Print a machine-readable proposal (propose), result (init/install/uninstall), or theme list (--list-themes)
+                      机器可读提案（propose）、结果（init/install/uninstall），或主题列表（--list-themes）
   --html [path]       Self-contained HTML report (stdout, or write to path; offline, no CDN)
                       自包含 HTML 报告（stdout，或写入路径；离线，无 CDN）
   --theme <name>      HTML palette: ember (default), fog, midnight, paper, aurora
                       HTML 配色：ember（默认，与 0.1.27 相同）、fog、midnight、paper、aurora
+  --list-themes       Print available HTML theme names (one per line; --json: JSON array)
+                      打印可用 HTML 主题名（每行一个；加 --json 则输出 JSON 数组）
   --github            Emit GitHub Actions annotations (::notice/warning/error)
                       输出 Actions 注解；有 GITHUB_OUTPUT / GITHUB_STEP_SUMMARY 时写输出与 Job Summary
   --quiet             Suppress the pretty terminal report (--json / --github still emit)
@@ -78,6 +82,7 @@ is set (findings = staged file count). A short Markdown job summary is appended 
 GITHUB_STEP_SUMMARY is set. --quiet hides the pretty report only.
 --html and --json cannot share stdout; pick one primary export.
 --theme only restyles --html (ember = 0.1.27 look). Pretty / JSON / GitHub / scoring unchanged.
+--list-themes prints HTML palette names (same order as --theme); combine with --json for a JSON array.
 --fail-above runs after every report is emitted (json / github / html / quiet / out).
 --copy writes the conventional commit message (title + body, not JSON / pretty chrome)
 after the proposal is built. No clipboard tool → skip silently (exit 0 unless something else fails).
@@ -87,6 +92,7 @@ after the proposal is built. No clipboard tool → skip silently (exit 0 unless 
 --quiet 只隐藏漂亮终端报告。
 --html 与 --json 不能同时占用 stdout；二选一。
 --theme 只改 --html 配色（ember = 0.1.27 外观）。漂亮终端 / JSON / GitHub / 打分不变。
+--list-themes 打印 HTML 配色名（顺序与 --theme 一致）；可加 --json 输出 JSON 数组。
 --fail-above 在所有报告输出之后再判定（json / github / html / quiet / out）。
 --copy 在提案生成后写入 Conventional Commit 正文（不是 JSON / 漂亮终端装饰）；无剪贴板则静默跳过。
 
@@ -121,6 +127,8 @@ Examples · 示例
   vibe-commit --html --theme fog
   vibe-commit --html --theme aurora
   vibe-commit --html report.html --theme midnight
+  vibe-commit --list-themes
+  vibe-commit --list-themes --json
   vibe-commit --copy
   vibe-commit --json --copy --quiet --no-ai
   git commit -m "$(vibe-commit --dry-run)"
@@ -170,6 +178,7 @@ export function parseArgs(
     force: false,
     theme: DEFAULT_HTML_THEME,
     copy: false,
+    listThemes: false,
   };
 
   let i = 0;
@@ -280,6 +289,10 @@ export function parseArgs(
       options.copy = true;
       continue;
     }
+    if (arg === "--list-themes") {
+      options.listThemes = true;
+      continue;
+    }
     if (arg === "--theme" || arg.startsWith("--theme=")) {
       const value = arg.includes("=") ? arg.slice("--theme=".length) : argv[++i];
       options.theme = parseTheme(value);
@@ -317,6 +330,10 @@ export function parseArgs(
     }
 
     throw new UsageError(`Unexpected argument: ${arg}`);
+  }
+
+  if (options.listThemes) {
+    return options;
   }
 
   if (options.command === "prepare-commit-msg" && !options.messageFile) {
