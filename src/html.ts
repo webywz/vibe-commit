@@ -111,6 +111,28 @@ export const THEME_TOKENS: Record<HtmlTheme, Record<string, string>> = {
     "--ok-border": "#c0d4b0",
     "--mid-border": "#dcc8a0",
   },
+  // polar-night / northern-lights; aligned with prompt-diff / llm-roast / breathing-github-profile / diff-vibe aurora
+  aurora: {
+    "--bg": "#0b2744",
+    "--bg-deep": "#030d18",
+    "--panel": "#071a30",
+    "--border": "#2a3c4c",
+    "--text": "#e4fff6",
+    "--muted": "#8ad0c4",
+    "--blue": "#4a80d8",
+    "--cyan": "#78c0ff",
+    "--green": "#3ee8c8",
+    "--orange": "#e8906a",
+    "--red": "#f0718a",
+    "--yellow": "#c498ff",
+    "--purple": "#c8b0ff",
+    "--font":
+      'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+    "--text-soft": "#b8e8dc",
+    "--hot-border": "#4a2438",
+    "--ok-border": "#1e4850",
+    "--mid-border": "#3a2a58",
+  },
 };
 
 function themeRootCss(theme: HtmlTheme): string {
