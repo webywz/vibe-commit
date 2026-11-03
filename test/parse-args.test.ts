@@ -169,6 +169,45 @@ describe("parseArgs", () => {
     assert.equal(uninstall.path, "/tmp/app");
   });
 
+  it("parses --force with init, install, and uninstall", () => {
+    const init = parseArgs(["init", "--force"], {});
+    assert.equal(init.command, "init");
+    assert.equal(init.force, true);
+    const install = parseArgs(["install", "--force", "--json"], {});
+    assert.equal(install.command, "install");
+    assert.equal(install.force, true);
+    assert.equal(install.json, true);
+    const uninstall = parseArgs(["uninstall", "--force", "--path", "/tmp/repo"], {});
+    assert.equal(uninstall.command, "uninstall");
+    assert.equal(uninstall.force, true);
+    assert.equal(uninstall.path, "/tmp/repo");
+  });
+
+  it("rejects --force outside init/install/uninstall", () => {
+    assert.throws(
+      () => parseArgs(["--force"], {}),
+      (error: unknown) =>
+        error instanceof UsageError &&
+        /--force is only valid with init, install or uninstall/.test(error.message),
+    );
+    assert.throws(
+      () => parseArgs(["prepare-commit-msg", "/tmp/COMMIT_EDITMSG", "--force"], {}),
+      UsageError,
+    );
+  });
+
+  it("documents --force on init/install/uninstall in help", () => {
+    const help = helpText();
+    assert.match(help, /vibe-commit init \[--path <repo>\] \[--force\] \[--json\]/);
+    assert.match(help, /vibe-commit install \[--path <repo>\] \[--force\] \[--json\]/);
+    assert.match(
+      help,
+      /vibe-commit uninstall \[--path <repo>\] \[--force\] \[--json\]/,
+    );
+    assert.match(help, /init\/install\/uninstall/);
+    assert.doesNotMatch(help, /init only/);
+  });
+
   it("parses prepare-commit-msg positional args", () => {
     const options = parseArgs(
       ["prepare-commit-msg", "/tmp/COMMIT_EDITMSG", "merge"],

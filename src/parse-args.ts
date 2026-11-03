@@ -20,8 +20,8 @@ const HELP = `vibe-commit — stylish conventional commits, offline-first
 Usage · 用法
   vibe-commit [options]
   vibe-commit init [--path <repo>] [--force] [--json]
-  vibe-commit install [--path <repo>] [--json]
-  vibe-commit uninstall [--path <repo>] [--json]
+  vibe-commit install [--path <repo>] [--force] [--json]
+  vibe-commit uninstall [--path <repo>] [--force] [--json]
 
 Commands · 命令
   init                Auto-detect hook manager (husky / simple-git-hooks / bare .git/hooks) and install
@@ -51,8 +51,8 @@ Options · 参数
                       抑制漂亮终端报告；--json / --github 仍照常
   --max-annotations <n>  Cap GitHub annotation lines (default: 20) · 限制注解条数
   --path <repo>       Repo root for init/install/uninstall (default: cwd)
-  --force             Force overwrite when init target already exists (init only)
-                      强制覆盖已存在的钩子配置（仅 init）
+  --force             Force overwrite/remove existing hook/config (init/install/uninstall)
+                      强制覆盖或移除已存在的钩子配置（init / install / uninstall）
   --out <file>        Write report (or JSON body with --json) to file (propose only)
                       写报告（或搭配 --json 写 JSON）到文件（仅 propose）
   --fail-above <n>    CI gate: exit 1 when riskScore > n (0–100; omit = off; propose only)
@@ -100,7 +100,8 @@ Git hook
     2. simple-git-hooks (package.json has "simple-git-hooks" dep or config) → set config entry
     3. else bare .git/hooks → install prepare-commit-msg directly
   
-  Use \`--force\` to overwrite existing hook/config (creates backup where applicable).
+  Use \`--force\` with init/install/uninstall to overwrite existing hook/config
+  (creates backup where applicable). Uninstall --force also removes unmanaged hooks.
 
 Project config
   .vibe-commit.json or package.json#vibeCommit
@@ -126,7 +127,9 @@ Examples · 示例
   vibe-commit init --force
   vibe-commit init --json
   vibe-commit install
+  vibe-commit install --force
   vibe-commit uninstall --path ~/projects/app
+  vibe-commit uninstall --force
 `;
 
 export function defaultVibeFromEnv(
@@ -330,8 +333,15 @@ export function parseArgs(
     throw new UsageError("--path is only valid with init, install or uninstall");
   }
 
-  if (options.force && options.command !== "init") {
-    throw new UsageError("--force is only valid with init");
+  if (
+    options.force &&
+    options.command !== "init" &&
+    options.command !== "install" &&
+    options.command !== "uninstall"
+  ) {
+    throw new UsageError(
+      "--force is only valid with init, install or uninstall",
+    );
   }
 
   if (options.out && options.command !== "propose") {

@@ -14,8 +14,7 @@ import {
 import { formatHtml } from "./html.ts";
 import {
   initHook,
-  installHook,
-  uninstallHook,
+  uninstallManagedHook,
   runPrepareCommitMsg,
   HOOK_BACKUP_NAME,
 } from "./hook.ts";
@@ -56,10 +55,10 @@ export async function main(
     return runInit(options.path, options.force, options.json, options.noColor);
   }
   if (options.command === "install") {
-    return runInstall(options.path, options.json, options.noColor);
+    return runInstall(options.path, options.force, options.json, options.noColor);
   }
   if (options.command === "uninstall") {
-    return runUninstall(options.path, options.json, options.noColor);
+    return runUninstall(options.path, options.force, options.json, options.noColor);
   }
   if (options.command === "prepare-commit-msg") {
     return runHookPrepare(options.messageFile!, options.commitSource);
@@ -282,18 +281,23 @@ function runInit(repoPath?: string, force?: boolean, json?: boolean, noColor = f
   }
 }
 
-function runInstall(repoPath?: string, json?: boolean, noColor = false): number {
+function runInstall(
+  repoPath?: string,
+  force?: boolean,
+  json?: boolean,
+  noColor = false,
+): number {
   try {
     const target = resolve(repoPath ?? process.cwd());
-    const result = installHook(target);
+    const result = initHook(target, { force });
 
     if (json) {
       const output = {
         ok: true,
         action: result.updated ? "updated" : result.created ? "installed" : "installed",
-        manager: "bare" as const,
-        path: result.hookPath,
-        hookPath: result.hookPath,
+        manager: result.manager,
+        path: result.targetPath,
+        hookPath: result.targetPath,
         created: result.created,
         updated: result.updated,
         backedUp: result.backedUp,
@@ -310,11 +314,11 @@ function runInstall(repoPath?: string, json?: boolean, noColor = false): number 
         : "installed";
     process.stdout.write(
       `${colors.green("ok")}  prepare-commit-msg hook ${action}\n` +
-        `     ${result.hookPath}\n`,
+        `     ${result.targetPath}\n`,
     );
     if (result.backedUp) {
       process.stdout.write(
-        `     previous hook backed up as prepare-commit-msg.vibe-backup\n`,
+        `     previous hook backed up as ${HOOK_BACKUP_NAME}\n`,
       );
     }
     process.stdout.write(
@@ -338,17 +342,22 @@ function runInstall(repoPath?: string, json?: boolean, noColor = false): number 
   }
 }
 
-function runUninstall(repoPath?: string, json?: boolean, noColor = false): number {
+function runUninstall(
+  repoPath?: string,
+  force?: boolean,
+  json?: boolean,
+  noColor = false,
+): number {
   try {
     const target = resolve(repoPath ?? process.cwd());
-    const result = uninstallHook(target);
+    const result = uninstallManagedHook(target, { force });
 
     if (json) {
       if (!result.removed) {
         const output = {
           ok: true,
           action: "skipped" as const,
-          manager: "bare" as const,
+          manager: result.manager,
           path: result.hookPath,
           hookPath: result.hookPath,
           removed: false,
@@ -360,7 +369,7 @@ function runUninstall(repoPath?: string, json?: boolean, noColor = false): numbe
       const output = {
         ok: true,
         action: "removed" as const,
-        manager: "bare" as const,
+        manager: result.manager,
         path: result.hookPath,
         hookPath: result.hookPath,
         removed: true,

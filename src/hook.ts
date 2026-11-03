@@ -290,6 +290,105 @@ export function initHook(
   }
 }
 
+function foreignHookError(hookPath: string): GitError {
+  return new GitError(
+    `${hookPath} already exists and is not managed by vibe-commit.\n` +
+      `已存在且不由 vibe-commit 管理。\n` +
+      `Use --force to overwrite (backs up as ${HOOK_BACKUP_NAME}).\n` +
+      `使用 --force 覆盖（会备份为 ${HOOK_BACKUP_NAME}）。`,
+  );
+}
+
+function installFileHook(
+  hookPath: string,
+  backupPath: string,
+  command: { execPath: string; cliPath: string },
+  force?: boolean,
+): { created: boolean; updated: boolean; backedUp: boolean } {
+  mkdirSync(dirname(hookPath), { recursive: true });
+  const block = buildManagedHookBlock(command.execPath, command.cliPath);
+  const existing = existsSync(hookPath)
+    ? readFileSync(hookPath, "utf8")
+    : null;
+
+  if (existing === null) {
+    writeFileSync(hookPath, `#!/bin/sh\n${block}\n`, { mode: 0o755 });
+    chmodSync(hookPath, 0o755);
+    return { created: true, updated: false, backedUp: false };
+  }
+
+  if (existing.includes(HOOK_BEGIN) && existing.includes(HOOK_END)) {
+    const next = replaceManagedBlock(existing, block);
+    writeFileSync(hookPath, ensureTrailingNewline(next), { mode: 0o755 });
+    chmodSync(hookPath, 0o755);
+    return { created: false, updated: true, backedUp: false };
+  }
+
+  if (!force) {
+    throw foreignHookError(hookPath);
+  }
+
+  writeFileSync(backupPath, existing, { mode: 0o755 });
+  chmodSync(backupPath, 0o755);
+  const wrapper = [
+    "#!/bin/sh",
+    block,
+    "",
+    "# Chain the previous prepare-commit-msg hook",
+    `if [ -x ${shellQuote(backupPath)} ]; then`,
+    `  ${shellQuote(backupPath)} "$@" || exit $?`,
+    "fi",
+    "",
+  ].join("\n");
+  writeFileSync(hookPath, wrapper, { mode: 0o755 });
+  chmodSync(hookPath, 0o755);
+  return { created: true, updated: false, backedUp: true };
+}
+
+function uninstallFileHook(
+  hookPath: string,
+  backupPath: string,
+  force?: boolean,
+): { hookPath: string; removed: boolean; restored: boolean } {
+  if (!existsSync(hookPath)) {
+    return { hookPath, removed: false, restored: false };
+  }
+
+  const existing = readFileSync(hookPath, "utf8");
+  const hasManaged =
+    existing.includes(HOOK_BEGIN) && existing.includes(HOOK_END);
+
+  if (!hasManaged) {
+    if (!force) {
+      return { hookPath, removed: false, restored: false };
+    }
+    if (existsSync(backupPath)) {
+      renameSync(backupPath, hookPath);
+      chmodSync(hookPath, 0o755);
+      return { hookPath, removed: true, restored: true };
+    }
+    unlinkSync(hookPath);
+    return { hookPath, removed: true, restored: false };
+  }
+
+  if (existsSync(backupPath)) {
+    renameSync(backupPath, hookPath);
+    chmodSync(hookPath, 0o755);
+    return { hookPath, removed: true, restored: true };
+  }
+
+  const stripped = stripManagedBlock(existing).trim();
+  if (isShebangOnly(stripped)) {
+    unlinkSync(hookPath);
+    return { hookPath, removed: true, restored: false };
+  }
+
+  writeFileSync(hookPath, ensureTrailingNewline(stripped), {
+    mode: 0o755,
+  });
+  return { hookPath, removed: true, restored: false };
+}
+
 function initHusky(
   repoPath: string,
   command: { execPath: string; cliPath: string },
@@ -297,61 +396,10 @@ function initHusky(
 ): InitResult {
   const huskyDir = join(repoPath, ".husky");
   mkdirSync(huskyDir, { recursive: true });
-
   const hookPath = join(huskyDir, HOOK_NAME);
-  const block = buildManagedHookBlock(command.execPath, command.cliPath);
-
-  const existing = existsSync(hookPath)
-    ? readFileSync(hookPath, "utf8")
-    : null;
-
-  let created = false;
-  let updated = false;
-  let backedUp = false;
-
-  if (existing === null) {
-    // Create new hook
-    writeFileSync(hookPath, `#!/bin/sh\n${block}\n`, { mode: 0o755 });
-    chmodSync(hookPath, 0o755);
-    created = true;
-  } else if (existing.includes(HOOK_BEGIN) && existing.includes(HOOK_END)) {
-    // Update existing managed block
-    const next = replaceManagedBlock(existing, block);
-    writeFileSync(hookPath, ensureTrailingNewline(next), { mode: 0o755 });
-    chmodSync(hookPath, 0o755);
-    updated = true;
-  } else {
-    // Foreign hook exists
-    if (!force) {
-      throw new GitError(
-        `${hookPath} already exists and is not managed by vibe-commit.\n` +
-          `已存在且不由 vibe-commit 管理。\n` +
-          `Use --force to overwrite (backs up as ${HOOK_BACKUP_NAME}).\n` +
-          `使用 --force 覆盖（会备份为 ${HOOK_BACKUP_NAME}）。`,
-      );
-    }
-    // Backup and overwrite
-    const backupPath = join(huskyDir, HOOK_BACKUP_NAME);
-    writeFileSync(backupPath, existing, { mode: 0o755 });
-    chmodSync(backupPath, 0o755);
-    backedUp = true;
-
-    const wrapper = [
-      "#!/bin/sh",
-      block,
-      "",
-      "# Chain the previous prepare-commit-msg hook",
-      `if [ -x ${shellQuote(backupPath)} ]; then`,
-      `  ${shellQuote(backupPath)} "$@" || exit $?`,
-      "fi",
-      "",
-    ].join("\n");
-    writeFileSync(hookPath, wrapper, { mode: 0o755 });
-    chmodSync(hookPath, 0o755);
-    created = true;
-  }
-
-  return { manager: "husky", targetPath: hookPath, created, updated, backedUp };
+  const backupPath = join(huskyDir, HOOK_BACKUP_NAME);
+  const result = installFileHook(hookPath, backupPath, command, force);
+  return { manager: "husky", targetPath: hookPath, ...result };
 }
 
 function initSimpleGitHooks(
@@ -378,7 +426,9 @@ function initSimpleGitHooks(
   }
 
   const existing = pkg["simple-git-hooks"][HOOK_NAME];
-  if (existing && !force) {
+  const managed = existing ? isManagedSimpleGitHookCommand(existing) : false;
+
+  if (existing && !managed && !force) {
     throw new GitError(
       `package.json already has simple-git-hooks.${HOOK_NAME}:\n` +
         `  ${existing}\n` +
@@ -403,32 +453,19 @@ function initSimpleGitHooks(
   };
 }
 
+export function isManagedSimpleGitHookCommand(cmd: string): boolean {
+  return (
+    cmd.includes("prepare-commit-msg") &&
+    (cmd.includes("vibe-commit") || /cli\.(js|ts)/.test(cmd))
+  );
+}
+
 function initBare(
   repoPath: string,
   command: { execPath: string; cliPath: string },
   force?: boolean,
 ): InitResult {
-  // Bare hooks: reuse installHook logic, but respect --force
-  const paths = resolveHookPaths(repoPath);
-  const existing = existsSync(paths.hookPath)
-    ? readFileSync(paths.hookPath, "utf8")
-    : null;
-
-  if (
-    existing &&
-    !existing.includes(HOOK_BEGIN) &&
-    !existing.includes(HOOK_END) &&
-    !force
-  ) {
-    throw new GitError(
-      `${paths.hookPath} already exists and is not managed by vibe-commit.\n` +
-        `已存在且不由 vibe-commit 管理。\n` +
-        `Use --force to overwrite (backs up as ${HOOK_BACKUP_NAME}).\n` +
-        `使用 --force 覆盖（会备份为 ${HOOK_BACKUP_NAME}）。`,
-    );
-  }
-
-  const result = installHook(repoPath, command);
+  const result = installHook(repoPath, command, { force });
   return {
     manager: "bare",
     targetPath: result.hookPath,
@@ -441,83 +478,89 @@ function initBare(
 export function installHook(
   repoPath = process.cwd(),
   command = resolveInstallCommand(),
+  options: { force?: boolean } = {},
 ): { hookPath: string; created: boolean; updated: boolean; backedUp: boolean } {
   const paths = resolveHookPaths(repoPath);
-  mkdirSync(paths.hooksDir, { recursive: true });
-
-  const block = buildManagedHookBlock(command.execPath, command.cliPath);
-  const existing = existsSync(paths.hookPath)
-    ? readFileSync(paths.hookPath, "utf8")
-    : null;
-
-  let backedUp = false;
-  let created = false;
-  let updated = false;
-
-  if (existing === null) {
-    writeFileSync(paths.hookPath, `#!/bin/sh\n${block}\n`, { mode: 0o755 });
-    created = true;
-  } else if (existing.includes(HOOK_BEGIN) && existing.includes(HOOK_END)) {
-    const next = replaceManagedBlock(existing, block);
-    writeFileSync(paths.hookPath, ensureTrailingNewline(next), {
-      mode: 0o755,
-    });
-    updated = true;
-  } else {
-    // Foreign hook: back it up, install wrapper that runs us then chains.
-    writeFileSync(paths.backupPath, existing, { mode: 0o755 });
-    chmodSync(paths.backupPath, 0o755);
-    backedUp = true;
-    const wrapper = [
-      "#!/bin/sh",
-      block,
-      "",
-      "# Chain the previous prepare-commit-msg hook",
-      `if [ -x ${shellQuote(paths.backupPath)} ]; then`,
-      `  ${shellQuote(paths.backupPath)} "$@" || exit $?`,
-      "fi",
-      "",
-    ].join("\n");
-    writeFileSync(paths.hookPath, wrapper, { mode: 0o755 });
-    created = true;
-  }
-
-  chmodSync(paths.hookPath, 0o755);
-  return { hookPath: paths.hookPath, created, updated, backedUp };
+  const result = installFileHook(
+    paths.hookPath,
+    paths.backupPath,
+    command,
+    options.force,
+  );
+  return { hookPath: paths.hookPath, ...result };
 }
 
-export function uninstallHook(repoPath = process.cwd()): {
+export function uninstallHook(
+  repoPath = process.cwd(),
+  options: { force?: boolean } = {},
+): {
   hookPath: string;
   removed: boolean;
   restored: boolean;
 } {
   const paths = resolveHookPaths(repoPath);
-  if (!existsSync(paths.hookPath)) {
-    return { hookPath: paths.hookPath, removed: false, restored: false };
+  return uninstallFileHook(paths.hookPath, paths.backupPath, options.force);
+}
+
+export interface UninstallResult {
+  manager: HookManager;
+  hookPath: string;
+  removed: boolean;
+  restored: boolean;
+}
+
+/**
+ * Uninstall using the same manager detection as `init` / `install`.
+ * Without `--force`, unmanaged foreign hooks/config are left in place.
+ * With `--force`, foreign file hooks are removed (restoring a backup when
+ * present) and foreign simple-git-hooks entries are deleted.
+ */
+export function uninstallManagedHook(
+  repoPath = process.cwd(),
+  options: { force?: boolean } = {},
+): UninstallResult {
+  assertRepo(repoPath);
+  const manager = detectHookManager(repoPath);
+  switch (manager) {
+    case "husky": {
+      const huskyDir = join(repoPath, ".husky");
+      const result = uninstallFileHook(
+        join(huskyDir, HOOK_NAME),
+        join(huskyDir, HOOK_BACKUP_NAME),
+        options.force,
+      );
+      return { manager, ...result };
+    }
+    case "simple-git-hooks":
+      return { manager, ...uninstallSimpleGitHooks(repoPath, options.force) };
+    case "bare":
+      return { manager, ...uninstallHook(repoPath, options) };
+  }
+}
+
+function uninstallSimpleGitHooks(
+  repoPath: string,
+  force?: boolean,
+): { hookPath: string; removed: boolean; restored: boolean } {
+  const pkgPath = join(repoPath, "package.json");
+  if (!existsSync(pkgPath)) {
+    return { hookPath: pkgPath, removed: false, restored: false };
   }
 
-  const existing = readFileSync(paths.hookPath, "utf8");
-  const hasManaged =
-    existing.includes(HOOK_BEGIN) && existing.includes(HOOK_END);
-
-  if (!hasManaged) {
-    return { hookPath: paths.hookPath, removed: false, restored: false };
+  const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+    "simple-git-hooks"?: Record<string, string>;
+  };
+  const existing = pkg["simple-git-hooks"]?.[HOOK_NAME];
+  if (!existing) {
+    return { hookPath: pkgPath, removed: false, restored: false };
   }
 
-  if (existsSync(paths.backupPath)) {
-    renameSync(paths.backupPath, paths.hookPath);
-    chmodSync(paths.hookPath, 0o755);
-    return { hookPath: paths.hookPath, removed: true, restored: true };
+  if (!isManagedSimpleGitHookCommand(existing) && !force) {
+    return { hookPath: pkgPath, removed: false, restored: false };
   }
 
-  const stripped = stripManagedBlock(existing).trim();
-  if (isShebangOnly(stripped)) {
-    unlinkSync(paths.hookPath);
-    return { hookPath: paths.hookPath, removed: true, restored: false };
-  }
-
-  writeFileSync(paths.hookPath, ensureTrailingNewline(stripped), {
-    mode: 0o755,
-  });
-  return { hookPath: paths.hookPath, removed: true, restored: false };
+  const hooks = pkg["simple-git-hooks"];
+  if (hooks) delete hooks[HOOK_NAME];
+  writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf8");
+  return { hookPath: pkgPath, removed: true, restored: false };
 }
