@@ -22,6 +22,7 @@ Requires **Node.js 18.18+**, `git`, and (for open/update) [`gh`](https://cli.git
 ```bash
 git add -p
 npx --yes @webywz/vibe-commit --dry-run    # review the proposal · 先看提案
+npx --yes @webywz/vibe-commit --copy       # same proposal, clipboard when available · 能复制就复制
 npx --yes @webywz/vibe-commit --commit     # write the commit · 真正提交
 ```
 

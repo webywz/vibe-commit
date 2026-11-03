@@ -121,4 +121,9 @@ export interface CliOptions {
    * Omitted = never gate (default off).
    */
   failAbove?: number;
+  /**
+   * Copy the proposed conventional commit (title + body) to the clipboard.
+   * Propose only. Missing clipboard tools are skipped silently.
+   */
+  copy: boolean;
 }

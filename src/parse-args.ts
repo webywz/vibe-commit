@@ -57,6 +57,8 @@ Options · 参数
                       写报告（或搭配 --json 写 JSON）到文件（仅 propose）
   --fail-above <n>    CI gate: exit 1 when riskScore > n (0–100; omit = off; propose only)
                       CI 门禁：风险分 > n 时以 1 退出（0–100；省略则关闭；仅 propose）
+  --copy              Copy proposed commit title+body to the clipboard (propose only; skip silently if unavailable)
+                      将提案标题+正文复制到剪贴板（仅 propose；无剪贴板工具则静默跳过）
   -h, --help          Show help
   -v, --version       Show version
 
@@ -77,6 +79,8 @@ GITHUB_STEP_SUMMARY is set. --quiet hides the pretty report only.
 --html and --json cannot share stdout; pick one primary export.
 --theme only restyles --html (ember = 0.1.27 look). Pretty / JSON / GitHub / scoring unchanged.
 --fail-above runs after every report is emitted (json / github / html / quiet / out).
+--copy writes the conventional commit message (title + body, not JSON / pretty chrome)
+after the proposal is built. No clipboard tool → skip silently (exit 0 unless something else fails).
 
 配合 --github 时注解走 stdout（与 --json / --html 联用则走 stderr，保持 JSON 干净）。
 有 GITHUB_OUTPUT 时写入 title/subject 等字段；有 GITHUB_STEP_SUMMARY 时追加 Job Summary。
@@ -84,6 +88,7 @@ GITHUB_STEP_SUMMARY is set. --quiet hides the pretty report only.
 --html 与 --json 不能同时占用 stdout；二选一。
 --theme 只改 --html 配色（ember = 0.1.27 外观）。漂亮终端 / JSON / GitHub / 打分不变。
 --fail-above 在所有报告输出之后再判定（json / github / html / quiet / out）。
+--copy 在提案生成后写入 Conventional Commit 正文（不是 JSON / 漂亮终端装饰）；无剪贴板则静默跳过。
 
 Git hook
   After \`vibe-commit init\` or \`vibe-commit install\`, plain \`git commit\` (no -m)
@@ -114,6 +119,8 @@ Examples · 示例
   vibe-commit --html
   vibe-commit --html --theme fog
   vibe-commit --html report.html --theme midnight
+  vibe-commit --copy
+  vibe-commit --json --copy --quiet --no-ai
   git commit -m "$(vibe-commit --dry-run)"
   vibe-commit init
   vibe-commit init --force
@@ -158,6 +165,7 @@ export function parseArgs(
     breaking: false,
     force: false,
     theme: DEFAULT_HTML_THEME,
+    copy: false,
   };
 
   let i = 0;
@@ -264,6 +272,10 @@ export function parseArgs(
       options.failAbove = parseFailAbove(value);
       continue;
     }
+    if (arg === "--copy") {
+      options.copy = true;
+      continue;
+    }
     if (arg === "--theme" || arg.startsWith("--theme=")) {
       const value = arg.includes("=") ? arg.slice("--theme=".length) : argv[++i];
       options.theme = parseTheme(value);
@@ -338,6 +350,10 @@ export function parseArgs(
 
   if (options.failAbove !== undefined && options.command !== "propose") {
     throw new UsageError("--fail-above is only valid with propose (default command)");
+  }
+
+  if (options.copy && options.command !== "propose") {
+    throw new UsageError("--copy is only valid with propose (default command)");
   }
 
   if (

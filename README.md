@@ -52,6 +52,8 @@ vibe-commit --html --theme fog      # same report, fog palette
 vibe-commit --html report.html --theme midnight  # write HTML to file (creates parent dirs)
 vibe-commit --out report.txt        # write report to file
 vibe-commit --json --out data.json  # write JSON to file (stdout also prints)
+vibe-commit --copy                  # copy title+body when a clipboard tool is available
+vibe-commit --json --copy --quiet   # still copies the human message, not the JSON
 git commit -m "$(vibe-commit --dry-run)"
 vibe-commit init                    # auto-detect hook manager and install
 vibe-commit init --force            # force overwrite existing hook/config
@@ -77,6 +79,7 @@ vibe-commit install                 # install bare .git/hooks (legacy)
 | `--max-annotations <n>` | Cap `--github` annotation lines (default: 20; invalid → UsageError) · 限制注解条数 |
 | `--out <file>` | Write report (or JSON body with `--json`) to file (propose only) · 写报告（或搭配 `--json` 写 JSON）到文件（仅 propose） |
 | `--fail-above <n>` | Propose-only CI gate: after reports emit, exit 1 if `riskScore` **>** n (integer 0–100). Omit = off. Compatible with `--json` / `--github` / `--quiet` / `--html` / `--out` · 仅 propose：报告输出后再判定，风险分 **>** n 则以 1 退出（整数 0–100；省略则关闭） |
+| `--copy` | Propose only: copy the conventional commit **title + body** (same text you would paste into `git commit`) when `pbcopy` / `wl-copy` / `xclip` / `xsel` is available. With `--json`, still copies the human message, not the JSON. No tool → skip silently (exit 0 unless something else fails). Compatible with `--quiet` / `--github` / `--html` / `--fail-above` · 仅 propose：有剪贴板工具时复制标题+正文（不是 JSON / 漂亮终端装饰）；没有则静默跳过 |
 | `init [--path] [--force] [--json]` | Auto-detect hook manager and install (husky → simple-git-hooks → bare .git/hooks) · 自动检测钩子管理器并安装 |
 | `install [--path] [--json]` | Install the prepare-commit-msg hook (bare .git/hooks) · 安装钩子（直接写 .git/hooks） |
 | `uninstall [--path] [--json]` | Remove the managed hook · 卸载钩子 |
