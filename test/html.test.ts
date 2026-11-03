@@ -196,6 +196,38 @@ after(() => {
   }
 });
 
+describe("--list-themes CLI", () => {
+  it("prints HTML_THEMES names one per line", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "vibe-commit-list-themes-"));
+    repos.push(cwd);
+    const result = run(cwd, ["--list-themes"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, `${HTML_THEMES.join("\n")}\n`);
+    assert.deepEqual(result.stdout.trim().split("\n"), [...HTML_THEMES]);
+  });
+
+  it("prints a JSON array of HTML_THEMES with --list-themes --json", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "vibe-commit-list-themes-json-"));
+    repos.push(cwd);
+    const listed = run(cwd, ["--list-themes", "--json"]);
+    const reversed = run(cwd, ["--json", "--list-themes"]);
+    assert.equal(listed.status, 0, listed.stderr);
+    assert.equal(reversed.status, 0, reversed.stderr);
+    assert.deepEqual(JSON.parse(listed.stdout), [...HTML_THEMES]);
+    assert.deepEqual(JSON.parse(reversed.stdout), [...HTML_THEMES]);
+    assert.equal(listed.stdout, `${JSON.stringify([...HTML_THEMES])}\n`);
+  });
+
+  it("does not require a git repo or staged changes", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "vibe-commit-list-themes-nongit-"));
+    repos.push(cwd);
+    const result = run(cwd, ["--list-themes"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.doesNotMatch(result.stderr, /Unknown option|No staged changes|Not a git repository/);
+    assert.doesNotMatch(result.stdout, /feat\(|proposed/);
+  });
+});
+
 describe("--html CLI", () => {
   it("lists --html in help", () => {
     const cwd = makeRepo();
@@ -211,6 +243,8 @@ describe("--html CLI", () => {
     assert.match(help.stdout, /midnight/);
     assert.match(help.stdout, /paper/);
     assert.match(help.stdout, /aurora/);
+    assert.match(help.stdout, /--list-themes/);
+    assert.match(help.stdout, /JSON array/);
   });
 
   it("defaults to ember CSS and accepts --theme ember", () => {

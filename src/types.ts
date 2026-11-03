@@ -117,6 +117,11 @@ export interface CliOptions {
   /** HTML report palette only; ignored by pretty / JSON / GitHub. */
   theme: HtmlTheme;
   /**
+   * Print available HTML theme names and exit (no staged diff required).
+   * Combine with `--json` for a JSON array.
+   */
+  listThemes: boolean;
+  /**
    * Exit 1 on propose when riskScore > n (0–100).
    * Omitted = never gate (default off).
    */

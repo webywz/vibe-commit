@@ -19,6 +19,7 @@ import {
   HOOK_BACKUP_NAME,
 } from "./hook.ts";
 import { helpText, parseArgs, UsageError } from "./parse-args.ts";
+import { HTML_THEMES } from "./types.ts";
 import { proposeMessage } from "./propose.ts";
 import { renderError, renderProposal, renderVersion } from "./render.ts";
 import { exceedsFailAbove, failAboveMessage, riskScore } from "./score.ts";
@@ -48,6 +49,14 @@ export async function main(
   }
   if (options.version) {
     process.stdout.write(`${renderVersion(readVersion(), options.noColor)}\n`);
+    return 0;
+  }
+  if (options.listThemes) {
+    if (options.json) {
+      process.stdout.write(`${JSON.stringify([...HTML_THEMES])}\n`);
+    } else {
+      process.stdout.write(`${HTML_THEMES.join("\n")}\n`);
+    }
     return 0;
   }
 

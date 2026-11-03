@@ -40,6 +40,7 @@ describe("parseArgs", () => {
     assert.equal(options.noColor, false);
     assert.equal(options.theme, "ember");
     assert.equal(options.copy, false);
+    assert.equal(options.listThemes, false);
   });
 
   it("parses long flags and equals syntax", () => {
@@ -464,6 +465,42 @@ describe("parseArgs --theme", () => {
     assert.match(help, /paper/);
     assert.match(help, /aurora/);
     assert.match(help, /--theme only restyles --html/);
+  });
+});
+
+describe("parseArgs --list-themes", () => {
+  it("defaults to off", () => {
+    assert.equal(parseArgs([], {}).listThemes, false);
+  });
+
+  it("parses --list-themes and optional --json without propose inputs", () => {
+    assert.deepEqual(
+      {
+        listThemes: parseArgs(["--list-themes"], {}).listThemes,
+        json: parseArgs(["--list-themes"], {}).json,
+      },
+      { listThemes: true, json: false },
+    );
+    assert.equal(parseArgs(["--list-themes", "--json"], {}).listThemes, true);
+    assert.equal(parseArgs(["--list-themes", "--json"], {}).json, true);
+    assert.equal(parseArgs(["--json", "--list-themes"], {}).listThemes, true);
+    assert.equal(parseArgs(["--json", "--list-themes"], {}).json, true);
+  });
+
+  it("allows --list-themes with --html --json (list wins; no propose)", () => {
+    const options = parseArgs(["--list-themes", "--html", "--json"], {});
+    assert.equal(options.listThemes, true);
+    assert.equal(options.json, true);
+    assert.equal(options.html, true);
+  });
+
+  it("documents --list-themes in help (en+zh)", () => {
+    const help = helpText();
+    assert.match(help, /--list-themes/);
+    assert.match(help, /JSON array/);
+    assert.match(help, /vibe-commit --list-themes/);
+    assert.match(help, /vibe-commit --list-themes --json/);
+    assert.match(help, /打印可用 HTML 主题名/);
   });
 });
 

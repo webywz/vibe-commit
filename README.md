@@ -51,6 +51,8 @@ vibe-commit --html                  # self-contained HTML report on stdout (embe
 vibe-commit --html --theme fog      # same report, fog palette
 vibe-commit --html --theme aurora   # polar-night / northern-lights palette
 vibe-commit --html report.html --theme midnight  # write HTML to file (creates parent dirs)
+vibe-commit --list-themes           # print HTML theme names (one per line)
+vibe-commit --list-themes --json    # same names as a JSON array
 vibe-commit --out report.txt        # write report to file
 vibe-commit --json --out data.json  # write JSON to file (stdout also prints)
 vibe-commit --copy                  # copy title+body when a clipboard tool is available
@@ -77,6 +79,7 @@ vibe-commit uninstall --force       # remove unmanaged hook/config too
 | `--json` | Machine-readable proposal (propose) or result (init/install/uninstall) · 机器可读提案（propose）或结果（init/install/uninstall） |
 | `--html [path]` | Self-contained HTML report (stdout, or write to path; offline, no CDN). Cannot share stdout with `--json` · 自包含 HTML 报告（stdout 或写入路径；离线、无 CDN）。不能与 `--json` 同时占用 stdout |
 | `--theme <name>` | HTML palette only: `ember` (default, 0.1.27 look), `fog`, `midnight`, `paper`, `aurora` · 仅 HTML 配色：`ember`（默认，与 0.1.27 相同）、`fog`、`midnight`、`paper`、`aurora` |
+| `--list-themes` | Print available HTML theme names (one per line; `--json`: JSON array). Does not require staged changes · 打印可用 HTML 主题名（每行一个；加 `--json` 则输出 JSON 数组）。不需要暂存改动 |
 | `--github` | Emit GitHub Actions `::notice` / `::warning` / `::error` annotations; write `GITHUB_OUTPUT` + `GITHUB_STEP_SUMMARY` when set · 输出 Actions 注解，并在环境变量存在时写 Job 输出与 Summary |
 | `--quiet` | Suppress the pretty terminal report; `--json` / `--github` still emit · 抑制漂亮终端报告 |
 | `--max-annotations <n>` | Cap `--github` annotation lines (default: 20; invalid → UsageError) · 限制注解条数 |
@@ -323,8 +326,8 @@ console.log(formatCommit(message));
    通过 `install` / `uninstall` 管理 `prepare-commit-msg` 钩子。
 6. **GitHub Actions** mode: `--github` emits Checks annotations; optional `--quiet` / `--max-annotations`; writes job outputs + step summary when `GITHUB_OUTPUT` / `GITHUB_STEP_SUMMARY` are set. Optional `--fail-above <n>` exits 1 after those outputs when `riskScore` > n (`breaking` = 100, `fix` = 70, `feat`/`perf`/`refactor` = 45, other types = 15). See [`examples/github-actions.yml`](./examples/github-actions.yml).
    **GitHub Actions** 模式：`--github` 输出 Checks 注解；可选 `--quiet` / `--max-annotations`；环境变量存在时写 Job 输出与 Summary。可选 `--fail-above <n>` 在输出之后若 `riskScore` > n 则以 1 退出（`breaking` = 100，`fix` = 70，`feat`/`perf`/`refactor` = 45，其余类型 = 15）。示例见 [`examples/github-actions.yml`](./examples/github-actions.yml)。
-7. **HTML report**: `--html [path]` writes a self-contained offline page (proposed message, vibe/heuristic signals, file summary, confidence / tips). No CDN, no external CSS/JS/fonts. Omit path → stdout; give a path → write the file (parent dirs created). `--theme <name>` swaps CSS-variable palettes (`ember` default = 0.1.27 look, plus `fog`, `midnight`, `paper`, `aurora`); it does not change JSON, pretty, GitHub annotations, `--fail-above`, `--locale`, or scoring. Mutually exclusive with `--json`. Combined with `--github` on stdout, annotations go to stderr so the HTML stays parseable.
-   **HTML 报告**：`--html [path]` 写出离线自包含页面（提案、vibe/启发式信号、文件摘要、把握 / 提示）。无 CDN、无外部 CSS/JS/字体。省略路径 → stdout；给出路径 → 写文件（自动创建父目录）。`--theme <name>` 只换 CSS 变量配色（默认 `ember` 与 0.1.27 相同，另有 `fog` / `midnight` / `paper` / `aurora`）；不影响 JSON、终端漂亮输出、GitHub 注解、`--fail-above`、`--locale` 或打分。与 `--json` 互斥。与 `--github` 联用且 HTML 走 stdout 时，注解改走 stderr，保持 HTML 可解析。
+7. **HTML report**: `--html [path]` writes a self-contained offline page (proposed message, vibe/heuristic signals, file summary, confidence / tips). No CDN, no external CSS/JS/fonts. Omit path → stdout; give a path → write the file (parent dirs created). `--theme <name>` swaps CSS-variable palettes (`ember` default = 0.1.27 look, plus `fog`, `midnight`, `paper`, `aurora`); it does not change JSON, pretty, GitHub annotations, `--fail-above`, `--locale`, or scoring. `--list-themes` prints those names (one per line; `--list-themes --json` is a JSON array) without requiring staged changes. Mutually exclusive with `--json`. Combined with `--github` on stdout, annotations go to stderr so the HTML stays parseable.
+   **HTML 报告**：`--html [path]` 写出离线自包含页面（提案、vibe/启发式信号、文件摘要、把握 / 提示）。无 CDN、无外部 CSS/JS/字体。省略路径 → stdout；给出路径 → 写文件（自动创建父目录）。`--theme <name>` 只换 CSS 变量配色（默认 `ember` 与 0.1.27 相同，另有 `fog` / `midnight` / `paper` / `aurora`）；不影响 JSON、终端漂亮输出、GitHub 注解、`--fail-above`、`--locale` 或打分。`--list-themes` 打印这些主题名（每行一个；`--list-themes --json` 为 JSON 数组），不需要暂存改动。与 `--json` 互斥。与 `--github` 联用且 HTML 走 stdout 时，注解改走 stderr，保持 HTML 可解析。
 
 ---
 
