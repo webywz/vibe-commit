@@ -1,3 +1,4 @@
+export { copyToClipboard } from "./clipboard.ts";
 export { proposeWithAi } from "./ai.ts";
 export { formatCommit, parseCommit, normalizeSubject } from "./format.ts";
 export { inspectStaged, commitWithMessage, GitError } from "./git.ts";

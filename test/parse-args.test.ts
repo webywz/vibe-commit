@@ -39,6 +39,7 @@ describe("parseArgs", () => {
     assert.equal(options.maxAnnotations, 20);
     assert.equal(options.noColor, false);
     assert.equal(options.theme, "ember");
+    assert.equal(options.copy, false);
   });
 
   it("parses long flags and equals syntax", () => {
@@ -459,5 +460,53 @@ describe("parseArgs --fail-above", () => {
     const help = helpText();
     assert.match(help, /--fail-above/);
     assert.match(help, /riskScore/);
+  });
+});
+
+describe("parseArgs --copy", () => {
+  it("defaults to off", () => {
+    assert.equal(parseArgs([], {}).copy, false);
+  });
+
+  it("parses --copy on the default propose command", () => {
+    const options = parseArgs(["--copy", "--no-ai"], {});
+    assert.equal(options.command, "propose");
+    assert.equal(options.copy, true);
+  });
+
+  it("allows --copy with --json / --quiet / --github / --html / --fail-above", () => {
+    const options = parseArgs(
+      ["--copy", "--json", "--quiet", "--github", "--fail-above", "70", "--no-ai"],
+      {},
+    );
+    assert.equal(options.command, "propose");
+    assert.equal(options.copy, true);
+    assert.equal(options.json, true);
+    assert.equal(options.quiet, true);
+    assert.equal(options.github, true);
+    assert.equal(options.failAbove, 70);
+
+    const html = parseArgs(["--copy", "--html", "--quiet", "--no-ai"], {});
+    assert.equal(html.copy, true);
+    assert.equal(html.html, true);
+  });
+
+  it("rejects --copy with non-propose commands", () => {
+    assert.throws(
+      () => parseArgs(["init", "--copy"], {}),
+      (error: unknown) =>
+        error instanceof UsageError &&
+        /--copy is only valid with propose/.test(error.message),
+    );
+    assert.throws(() => parseArgs(["install", "--copy"], {}), UsageError);
+    assert.throws(() => parseArgs(["uninstall", "--copy"], {}), UsageError);
+  });
+
+  it("documents --copy in help (en+zh)", () => {
+    const help = helpText();
+    assert.match(help, /--copy/);
+    assert.match(help, /clipboard/);
+    assert.match(help, /剪贴板/);
+    assert.match(help, /skip silently|静默跳过/);
   });
 });

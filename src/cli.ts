@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import pc from "picocolors";
+import { copyToClipboard } from "./clipboard.ts";
 import { formatCommit } from "./format.ts";
 import { commitWithMessage, GitError, inspectStaged } from "./git.ts";
 import {
@@ -23,7 +24,14 @@ import { proposeMessage } from "./propose.ts";
 import { renderError, renderProposal, renderVersion } from "./render.ts";
 import { exceedsFailAbove, failAboveMessage, riskScore } from "./score.ts";
 
-export async function main(argv = process.argv.slice(2)): Promise<number> {
+export type CliDeps = {
+  copyToClipboard?: (text: string) => boolean;
+};
+
+export async function main(
+  argv = process.argv.slice(2),
+  deps: CliDeps = {},
+): Promise<number> {
   let options;
   try {
     options = parseArgs(argv);
@@ -69,6 +77,15 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       breaking: options.breaking,
     });
     const formatted = formatCommit(message);
+    if (options.copy) {
+      // Human commit message only (title + body). Missing clipboard → skip silently.
+      const copy = deps.copyToClipboard ?? copyToClipboard;
+      try {
+        copy(formatted);
+      } catch {
+        // Clipboard helpers must not fail the propose path.
+      }
+    }
     const shouldCommit = options.commit && !options.dryRun;
     const htmlOnStdout = options.html === true;
     const htmlPath = typeof options.html === "string" ? options.html : undefined;

@@ -152,9 +152,19 @@ describe("cli e2e", () => {
     const help = run(cwd, ["--help"]);
     assert.equal(help.status, 0);
     assert.match(help.stdout, /Usage/);
+    assert.match(help.stdout, /--copy/);
     const version = run(cwd, ["--version"]);
     assert.equal(version.status, 0);
     assert.match(version.stdout, /vibe-commit \d+\.\d+\.\d+/);
+  });
+
+  it("--copy without a clipboard tool still exits 0 and stays quiet", () => {
+    const cwd = makeRepo();
+    repos.push(cwd);
+    const result = run(cwd, ["--no-ai", "--copy", "--quiet"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.doesNotMatch(result.stderr, /clipboard/i);
+    assert.doesNotMatch(result.stdout, /clipboard/i);
   });
 
   it("emits GitHub annotations with --github --quiet", () => {
